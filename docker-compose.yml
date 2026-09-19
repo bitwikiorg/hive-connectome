@@ -1,0 +1,40 @@
+services:
+  hive:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:8080"
+    environment:
+      HIVE_DATA_DIR: /data
+      HIVE_CONFIG_DIR: /app/config
+      VENICE_BASE_URL: https://api.venice.ai/api/v1
+      VENICE_DECISION_MODEL: jev-latest
+      LMSTUDIO_BASE_URL: http://host.docker.internal:1234/v1
+      HIVE_LLM_PROVIDER: lmstudio
+      HIVE_LLM_MODEL: ${HIVE_LLM_MODEL:-}
+    volumes:
+      - hive-data:/data
+      - ./data/inbox:/data/inbox:ro
+      - ./.secrets:/run/secrets:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hive-mcp:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "hive_connectome.mcp_server"]
+    environment:
+      HIVE_API_URL: http://hive:8080
+    ports:
+      - "127.0.0.1:8090:8000"
+    depends_on:
+      hive:
+        condition: service_healthy
+
+volumes:
+  hive-data:

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "hivemind": {
+    "name": "HIVE",
+    "shared_memory": "comb",
+    "bus": "waggle"
+  },
+  "bee_units": [
+    {
+      "id": "scout",
+      "role": "novelty-and-routing",
+      "worm_link": {
+        "engine": "synthetic",
+        "state_size": 16
+      },
+      "fly_core": {
+        "engine": "synthetic",
+        "state_size": 64
+      },
+      "jev_head": [
+        "meaningful_signal",
+        "novelty",
+        "route",
+        "llm_needed"
+      ],
+      "llm_policy": "escalate-on-uncertainty"
+    },
+    {
+      "id": "keeper",
+      "role": "state-and-memory",
+      "worm_link": {
+        "engine": "synthetic",
+        "state_size": 16
+      },
+      "fly_core": {
+        "engine": "synthetic",
+        "state_size": 64
+      },
+      "jev_head": [
+        "state_change",
+        "relevance",
+        "needs_merge"
+      ],
+      "llm_policy": "escalate-on-semantic-merge"
+    },
+    {
+      "id": "auditor",
+      "role": "verification",
+      "worm_link": {
+        "engine": "synthetic",
+        "state_size": 16
+      },
+      "fly_core": {
+        "engine": "synthetic",
+        "state_size": 64
+      },
+      "jev_head": [
+        "supported",
+        "contradiction",
+        "needs_review"
+      ],
+      "llm_policy": "rare"
+    }
+  ],
+  "default_chain": [
+    "scout",
+    "keeper",
+    "auditor"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "defillama-protocols",
+      "name": "DefiLlama protocols",
+      "kind": "http_json",
+      "url": "https://api.llama.fi/protocols",
+      "method": "GET",
+      "interval_seconds": 300,
+      "enabled": false,
+      "auto_process": true
+    },
+    {
+      "id": "base-head",
+      "name": "Base public RPC head",
+      "kind": "http_json",
+      "url": "https://mainnet.base.org",
+      "method": "POST",
+      "body": {
+        "jsonrpc": "2.0",
+        "method": "eth_blockNumber",
+        "params": [],
+        "id": 1
+      },
+      "interval_seconds": 15,
+      "enabled": false,
+      "auto_process": true
+    },
+    {
+      "id": "local-inbox",
+      "name": "Local inbox",
+      "kind": "file_drop",
+      "path": "/data/inbox",
+      "interval_seconds": 10,
+      "enabled": true,
+      "auto_process": true
+    }
+  ]
+}
