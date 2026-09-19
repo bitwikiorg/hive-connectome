@@ -1,0 +1,26 @@
+{
+  "id": "basednut",
+  "description": "Based Nut Hivemind for always-on ecosystem state capture and data-layer navigation.",
+  "sources": [
+    "base-rpc",
+    "wallet-read",
+    "contracts",
+    "pools",
+    "iris",
+    "ecosystem-services"
+  ],
+  "effectors": [
+    "labels",
+    "state",
+    "indexes",
+    "action_proposals"
+  ],
+  "default_permissions": [
+    "read",
+    "label",
+    "state_write",
+    "propose"
+  ],
+  "wallet_signing": false,
+  "execution_boundary": "separate-policy-and-signer-service"
+}

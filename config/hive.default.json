@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "hivemind": {
     "name": "HIVE",
     "shared_memory": "comb",
@@ -9,57 +9,107 @@
     {
       "id": "scout",
       "role": "novelty-and-routing",
-      "worm_link": {
-        "engine": "synthetic",
-        "state_size": 16
-      },
-      "fly_core": {
-        "engine": "synthetic",
-        "state_size": 64
-      },
+      "brain_chain": [
+        {
+          "id": "worm-gate",
+          "kind": "worm_link",
+          "engine": "synthetic",
+          "state_size": 16
+        },
+        {
+          "id": "larval-associator",
+          "kind": "larval_mb",
+          "engine": "planned",
+          "enabled": false,
+          "connectome_pack": "fly-larval-mushroom-body",
+          "input_from": [
+            "worm-gate"
+          ]
+        },
+        {
+          "id": "fly-context",
+          "kind": "fly_core",
+          "engine": "synthetic",
+          "state_size": 64,
+          "input_from": [
+            "worm-gate",
+            "larval-associator"
+          ]
+        }
+      ],
       "jev_head": [
         "meaningful_signal",
         "novelty",
         "route",
         "llm_needed"
       ],
-      "llm_policy": "escalate-on-uncertainty"
+      "llm_policy": "escalate-on-uncertainty",
+      "permissions": [
+        "read"
+      ]
     },
     {
       "id": "keeper",
       "role": "state-and-memory",
-      "worm_link": {
-        "engine": "synthetic",
-        "state_size": 16
-      },
-      "fly_core": {
-        "engine": "synthetic",
-        "state_size": 64
-      },
+      "brain_chain": [
+        {
+          "id": "worm-state",
+          "kind": "worm_link",
+          "engine": "synthetic",
+          "state_size": 16
+        },
+        {
+          "id": "fly-memory",
+          "kind": "fly_core",
+          "engine": "synthetic",
+          "state_size": 64,
+          "input_from": [
+            "worm-state"
+          ]
+        }
+      ],
       "jev_head": [
         "state_change",
         "relevance",
         "needs_merge"
       ],
-      "llm_policy": "escalate-on-semantic-merge"
+      "llm_policy": "escalate-on-semantic-merge",
+      "permissions": [
+        "read",
+        "label",
+        "state_write"
+      ]
     },
     {
       "id": "auditor",
       "role": "verification",
-      "worm_link": {
-        "engine": "synthetic",
-        "state_size": 16
-      },
-      "fly_core": {
-        "engine": "synthetic",
-        "state_size": 64
-      },
+      "brain_chain": [
+        {
+          "id": "worm-audit",
+          "kind": "worm_link",
+          "engine": "synthetic",
+          "state_size": 16
+        },
+        {
+          "id": "fly-audit",
+          "kind": "fly_core",
+          "engine": "synthetic",
+          "state_size": 64,
+          "input_from": [
+            "worm-audit"
+          ]
+        }
+      ],
       "jev_head": [
         "supported",
         "contradiction",
         "needs_review"
       ],
-      "llm_policy": "rare"
+      "llm_policy": "rare",
+      "permissions": [
+        "read",
+        "verify"
+      ]
     }
   ],
   "default_chain": [

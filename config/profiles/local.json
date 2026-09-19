@@ -1,0 +1,21 @@
+{
+  "id": "local",
+  "description": "Private personal Hivemind. Local-first data and inference; explicit source opt-in.",
+  "sources": [
+    "local-inbox",
+    "chat-export",
+    "repo-index",
+    "notes"
+  ],
+  "effectors": [
+    "labels",
+    "state",
+    "mcp-read"
+  ],
+  "default_permissions": [
+    "read",
+    "label",
+    "state_write"
+  ],
+  "wallet_signing": false
+}

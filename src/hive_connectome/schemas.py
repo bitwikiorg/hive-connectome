@@ -74,6 +74,33 @@ class PipelineResult(BaseModel):
     labels: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
 
+class BrainStageSpec(BaseModel):
+    id: str
+    kind: BrainKind
+    engine: str
+    enabled: bool = True
+    state_size: int | None = Field(default=None, ge=1)
+    connectome_pack: str | None = None
+    input_from: list[str] = Field(default_factory=list)
+    output_name: str | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+
+class BeeUnitSpec(BaseModel):
+    id: str
+    role: str
+    brain_chain: list[BrainStageSpec]
+    jev_head: list[str] = Field(default_factory=list)
+    llm_policy: Literal["never", "rare", "escalate-on-uncertainty", "escalate-on-semantic-merge", "always"] = "escalate-on-uncertainty"
+    tools: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=lambda: ["read"])
+
+class HivemindSpec(BaseModel):
+    name: str = "HIVE"
+    shared_memory: str = "comb"
+    bus: str = "waggle"
+    bee_units: list[BeeUnitSpec]
+    default_chain: list[str] = Field(default_factory=list)
+
 class DataSourceSpec(BaseModel):
     id: str
     name: str
