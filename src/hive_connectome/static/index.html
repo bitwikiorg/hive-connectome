@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HIVE Connectome</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div><h1>HIVE <span>CONNECTOME</span></h1><p>always-on mini-brains · Jev · local AI · MCP</p></div>
+  <div id="health" class="pill">loading</div>
+</header>
+<main>
+  <section class="hero card">
+    <div class="flow"><b>DATA</b><i>→</i><b>WormLink</b><i>→</i><b>FlyCore</b><i>→</i><b>JEV</b><i>→</i><b>LLM?</b><i>→</i><b>COMB</b></div>
+    <p>Neural state stays active. Jev handles bounded decisions. The LLM enters only when open-ended reasoning is justified.</p>
+  </section>
+  <section class="grid">
+    <div class="card"><h2>Providers</h2><button onclick="loadProviders()">Test providers</button><pre id="providers">not tested</pre></div>
+    <div class="card">
+      <h2>Pipeline test</h2>
+      <textarea id="payload">{"signal":"honey","value":1,"note":"test event"}</textarea>
+      <div class="row"><button onclick="runPipeline(false)">Run</button><button class="secondary" onclick="runPipeline(true)">Force LLM</button><button class="ghost" onclick="resetPipeline()">Reset brains</button></div>
+      <pre id="pipeline">ready</pre>
+    </div>
+  </section>
+  <section class="card"><h2>Connectome packs</h2><p>Only pinned, checksum-verified manifests can be downloaded. Downloaded data is never executed.</p><div id="connectomes"></div></section>
+  <section class="grid">
+    <div class="card"><h2>Always-on sources</h2><div id="sources"></div></div>
+    <div class="card"><h2>Recent events</h2><button class="secondary" onclick="loadEvents()">Refresh</button><pre id="events">none</pre></div>
+  </section>
+  <section class="card"><h2>MCP</h2><p><code>http://127.0.0.1:8090/mcp</code></p><p><code>hive_status</code> · <code>hive_recent_events</code> · <code>hive_ingest</code> · <code>hive_simulate</code></p></section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
