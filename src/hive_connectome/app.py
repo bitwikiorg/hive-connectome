@@ -6,18 +6,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from hive_connectome.connectomes.installer import ConnectomeInstaller
 from hive_connectome.db import HiveDB
-from hive_connectome.evals import EvalRequest, summarize_eval
+from hive_connectome.evals import EvalRequest, summarize_eval\nfrom hive_connectome.exports import build_experiment_export
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
 from hive_connectome.pipeline import HivePipeline
 from hive_connectome.providers.lmstudio import LMStudio
 from hive_connectome.providers.venice import VeniceChat, VeniceJev
 from hive_connectome.scheduler import HeartbeatDaemon, validate_cron
-from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, PipelineRequest, SimulationSpec
+from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, EventEnvelope, HiveRunRequest, PipelineRequest, SimulationSpec
 from hive_connectome.settings import Settings
 from hive_connectome.sources import poll_source
 from hive_connectome.workers import WorkerSpec, WorkerStore
@@ -238,6 +238,83 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             raise HTTPException(404, f"worker not found: {exc}")
         except Exception as exc:
             raise HTTPException(502, str(exc))
+
+    @app.post("/api/hive/run")
+    async def run_hive(req: HiveRunRequest):
+        results = []
+        current_event = req.event
+        for index, core_id in enumerate(req.core_ids):
+            try:
+                result = await pipeline.run(PipelineRequest(
+                    worker_id=core_id,
+                    event=current_event,
+                    mode=req.mode,
+                    jev_enabled=req.jev_enabled,
+                    llm_enabled=req.llm_enabled,
+                ))
+            except KeyError:
+                raise HTTPException(404, f"core not found: {core_id}")
+            results.append(result)
+            if index < len(req.core_ids) - 1:
+                stage_metrics = {
+                    stage_id: obs.metrics
+                    for stage_id, obs in result.stages.items()
+                }
+                current_event = EventEnvelope(
+                    source_id=f"hive:{core_id}",
+                    kind="core_handoff",
+                    payload={
+                        "origin_event_id": req.event.id,
+                        "previous_core": core_id,
+                        "previous_run_id": result.run_id,
+                        "decisions": result.decisions.answers,
+                        "modulation": result.modulation,
+                        "labels": result.labels,
+                        "stage_metrics": stage_metrics,
+                        "llm_text": result.llm.text if result.llm else None,
+                    },
+                    provenance={
+                        "parent_run_id": result.run_id,
+                        "parent_core_id": core_id,
+                        "hive_chain": list(req.core_ids),
+                    },
+                )
+        return {
+            "core_ids": req.core_ids,
+            "count": len(results),
+            "results": [result.model_dump(mode="json") for result in results],
+        }
+
+    @app.get("/api/runs")
+    async def runs(limit: int = Query(100, ge=1, le=5000), worker_id: str | None = None):
+        return db.list_runs(limit=limit, worker_id=worker_id)
+
+    @app.get("/api/runs/{run_id}")
+    async def run_detail(run_id: str):
+        run = db.get_run(run_id)
+        if run is None:
+            raise HTTPException(404, "run not found")
+        return run
+
+    @app.get("/api/provider-calls")
+    async def provider_calls(limit: int = Query(200, ge=1, le=10000), run_id: str | None = None):
+        return db.list_provider_calls(limit=limit, run_id=run_id)
+
+    @app.get("/api/exports/experiment")
+    async def export_experiment(worker_id: str | None = None, limit: int = Query(5000, ge=1, le=50000)):
+        payload = build_experiment_export(
+            db,
+            worker_store,
+            settings.data_dir,
+            worker_id=worker_id,
+            limit=limit,
+        )
+        suffix = worker_id or "all"
+        return StreamingResponse(
+            iter([payload]),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="hive-experiment-{suffix}.zip"'},
+        )
 
     @app.post("/api/pipeline/reset")
     async def reset_pipeline(worker_id: str | None = None):
