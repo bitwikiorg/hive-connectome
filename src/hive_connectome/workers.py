@@ -172,8 +172,8 @@ class WorkerSpec(BaseModel):
                         id=f"{source}-to-{stage.id}",
                         source=source,
                         target=stage.id,
-                        engine="hash_projection_v1",
-                        config={"source_excerpt": 16, "target_count": 24},
+                        engine="state_projection_v1",
+                        config={"source_excerpt": 32, "target_count": 24, "gain": 1.0},
                     ))
 
         for bridge in self.bridges:
