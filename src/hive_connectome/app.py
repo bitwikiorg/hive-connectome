@@ -15,9 +15,9 @@ from hive_connectome.evals import EvalRequest, summarize_eval
 from hive_connectome.exports import build_experiment_export
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
 from hive_connectome.pipeline import HivePipeline
-from hive_connectome.provider_config import ProviderConfigUpdate, ProviderRegistry
+from hive_connectome.provider_config import ProviderConfigUpdate, ProviderRegistry, ProviderTestRequest
 from hive_connectome.scheduler import HeartbeatDaemon, validate_cron
-from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, EventEnvelope, HiveRunRequest, PipelineRequest, SimulationSpec
+from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, DecisionType, EventEnvelope, HiveRunRequest, JevQuestion, PipelineRequest, SimulationSpec
 from hive_connectome.settings import Settings
 from hive_connectome.sources import poll_source
 from hive_connectome.workers import WorkerSpec, WorkerStore
@@ -186,6 +186,52 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             raise HTTPException(400, str(exc))
         provider_registry.apply(pipeline)
         return public
+
+    @app.post("/api/providers/test")
+    async def provider_test(req: ProviderTestRequest):
+        try:
+            if req.capability == "venice_jev":
+                if pipeline.venice is None:
+                    raise HTTPException(400, "Venice API key is not configured")
+                result = await pipeline.venice.decide(
+                    {"hive_provider_test": True, "purpose": "prove a live Venice Decisions transaction"},
+                    {"reachable": JevQuestion(type=DecisionType.NOUL, instructions="Is this provider-test state present?")},
+                    model=req.model or provider_registry.config.get("venice_decision_model"),
+                )
+                db.insert_provider_call(result.transport, stage_id="provider-test:venice-jev")
+                return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "answers": result.answers}
+            if req.capability == "venice_chat":
+                if pipeline.venice_chat is None:
+                    raise HTTPException(400, "Venice API key is not configured")
+                model = req.model
+                if not model:
+                    raise HTTPException(400, "Venice chat test requires a model")
+                result = await pipeline.venice_chat.chat(
+                    model,
+                    "Return exactly the short token HIVE_PROVIDER_OK.",
+                    {"hive_provider_test": True},
+                    temperature=0.0,
+                )
+                db.insert_provider_call(result.transport, stage_id="provider-test:venice-chat")
+                return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "text": result.text}
+            model = req.model or pipeline.default_llm_model
+            if not model:
+                raise HTTPException(400, "LM Studio chat test requires a model")
+            result = await pipeline.lmstudio.chat(
+                model,
+                "Return exactly the short token HIVE_PROVIDER_OK.",
+                {"hive_provider_test": True},
+                temperature=0.0,
+            )
+            db.insert_provider_call(result.transport, stage_id="provider-test:lmstudio-chat")
+            return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "text": result.text}
+        except HTTPException:
+            raise
+        except Exception as exc:
+            receipt = getattr(exc, "receipt", None)
+            if receipt:
+                db.insert_provider_call(receipt, stage_id=f"provider-test:{req.capability}")
+            raise HTTPException(502, str(exc))
 
     @app.get("/api/providers/status")
     async def provider_status():
