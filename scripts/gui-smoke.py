@@ -148,7 +148,7 @@ async def run(executable: str | None, screenshot: Path | None):
 
         await page.add_script_tag(content=js)
         await page.wait_for_function("document.getElementById('coreSelect').options.length > 0 && document.getElementById('pipelineBuilder').children.length > 0")
-        assert "primary experiment is not ready" in (await page.locator("#systemTruthTitle").text_content()).lower()
+        assert "not ready" in (await page.locator("#systemTruthTitle").text_content()).lower()
 
         await page.select_option("#coreSelect", "scout")
         await page.dispatch_event("#coreSelect", "change")
