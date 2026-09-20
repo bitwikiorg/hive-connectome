@@ -45,6 +45,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         lmstudio=lmstudio,
         default_llm_model=settings.llm_model,
         data_dir=settings.data_dir,
+        experiment_contract_path=settings.config_dir / "experiment_contract.json",
     )
     installer = ConnectomeInstaller(settings.config_dir / "connectomes.json", settings.data_dir)
     environment_runner = WorkerEnvironmentRunner(db, worker_store, pipeline, settings.data_dir / "inbox")
@@ -73,7 +74,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             await heartbeat.stop()
         db.close()
 
-    app = FastAPI(title="HIVE Connectome", version="0.5.0", lifespan=lifespan)
+    app = FastAPI(title="HIVE Connectome", version="0.6.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.db = db
     app.state.worker_store = worker_store
@@ -93,7 +94,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     async def health():
         return {
             "ok": True,
-            "version": "0.5.0",
+            "version": "0.6.0",
             "neural_runtime": pipeline.runtime_status(),
             "venice_configured": venice is not None,
             "lmstudio_model": settings.llm_model,
@@ -133,6 +134,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         raw = json.loads(json.dumps(template["worker"]))
         raw["id"] = worker_id
         raw["name"] = name or template["name"]
+        raw["description"] = "CONTROL / DEVELOPMENT: " + raw.get("description", "")
+        raw["experiment"]["notes"] = ("CONTROL ONLY: uses the 1,045-neuron MaleCNS locomotor subgraph; " + raw["experiment"].get("notes", "")).strip()
         raw["larva"] = {
             "engine": "cook2019_connectome",
             "state_size": 300,
@@ -355,4 +358,3 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         return {"name": spec.name, "worker_id": worker_id, "count": len(results), "results": results}
 
     return app
-

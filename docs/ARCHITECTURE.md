@@ -64,7 +64,8 @@ Profiles are examples rather than identities of the project. The same worker/eve
 The external contracts stay stable while internals improve:
 
 - default Larva: corrected Cook C. elegans measured topology + compact graded dynamics
-- default Bee: MaleCNS v1.0 1,045-neuron locomotor measured topology + LIF-style dynamics
+- primary Bee: full MaleCNS v1.0 graph (required; execution engine not yet implemented)
+- development/control Bee: MaleCNS v1.0 1,045-neuron locomotor subgraph + LIF-style dynamics
 - synthetic/random/shuffled engines remain experimental controls
 - one state instance → multiple states sharing immutable topology
 - SQLite → larger event/state store

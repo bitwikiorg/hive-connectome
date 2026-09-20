@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "experiment_id": "full-connectome-larva-bee-ablation",
+  "title": "Full C. elegans → full MaleCNS HIVE experiment",
+  "status": "blocked",
+  "primary_pipeline": {
+    "larva": {
+      "pack_id": "worm-cook-2020",
+      "engine": "cook2019_connectome",
+      "scope": "full_connectome",
+      "execution_required": true
+    },
+    "bee": {
+      "pack_id": "fly-malecns-v1",
+      "engine": "malecns_full_v1",
+      "scope": "full_connectome",
+      "expected_neurons": 166700,
+      "expected_directed_connections": 25582938,
+      "expected_synapses": 124177617,
+      "required_files": [
+        "annotations.feather",
+        "neurotransmitters.feather",
+        "edges.feather"
+      ],
+      "execution_required": true
+    },
+    "jev": {"role": "independent_toggle", "required": false},
+    "llm": {"role": "independent_toggle", "required": false}
+  },
+  "invariants": [
+    "The full MaleCNS graph is the primary Bee substrate and may not be replaced by a subgraph in the primary experiment.",
+    "The full Cook C. elegans connectome is the primary Larva substrate.",
+    "A downloaded dataset does not count as executed.",
+    "A subgraph, synthetic reservoir, shuffled graph, no-connectome path, Larva-only path, or Bee-only path is a control/ablation only.",
+    "Primary experiment readiness requires both full primary substrates installed, verified, and actually executed by their declared engines.",
+    "JEV and LLM are independent toggles; changing either must not change substrate, data environment, task, prompt, or evaluation case.",
+    "No silent fallback may satisfy a requested experimental stage.",
+    "Inference output is not external action authority."
+  ],
+  "controls": [
+    {"id": "malecns_locomotor_subgraph", "pack_id": "fly-malecns-locomotor", "role": "control_only"},
+    {"id": "synthetic_reservoir", "role": "control_only"},
+    {"id": "shuffled_connectome", "role": "control_only"},
+    {"id": "no_connectome", "role": "control_only"},
+    {"id": "larva_only", "role": "control_only"},
+    {"id": "bee_only", "role": "control_only"}
+  ],
+  "promotion_gates": [
+    "Implement a full MaleCNS engine that imports and propagates the complete pinned MaleCNS v1.0 graph.",
+    "Verify full dataset hashes before import.",
+    "Report observed node/connection counts from the loaded graph and fail on mismatch.",
+    "Run the same fixed evaluation cases across JEV/LLM toggle states without changing neural substrate.",
+    "Keep the locomotor subgraph labeled as a control in setup, API, GUI, docs, and receipts.",
+    "Pass software, replay, null/shuffle, and transition tests before declaring the primary experiment ready."
+  ]
+}

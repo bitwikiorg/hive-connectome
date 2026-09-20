@@ -18,6 +18,7 @@ from hive_connectome.schemas import (
 )
 from hive_connectome.workers import WorkerSpec, WorkerStore
 from hive_connectome.brains.base import MiniBrain
+from hive_connectome.experiment_contract import experiment_readiness, load_experiment_contract
 
 
 def brain_readout(state: dict[str, Any]) -> DecisionBundle:
@@ -47,6 +48,7 @@ class HivePipeline:
         lmstudio: LMStudio | None = None,
         default_llm_model: str | None = None,
         data_dir=None,
+        experiment_contract_path=None,
     ):
         self.db = db
         self.workers = workers
@@ -56,6 +58,7 @@ class HivePipeline:
         self.default_llm_model = default_llm_model
         from pathlib import Path
         self.data_dir = Path(data_dir or db.path.parent).resolve()
+        self.experiment_contract_path = Path(experiment_contract_path).resolve() if experiment_contract_path else None
         self._brains: dict[str, tuple[MiniBrain, MiniBrain, tuple]] = {}
 
     def _engine(self, worker: WorkerSpec, stage: str, spec):
@@ -96,9 +99,8 @@ class HivePipeline:
     def runtime_status(self) -> dict[str, Any]:
         workers = self.workers.list()
         worker = next((w for w in workers if w.id == "scout"), workers[0] if workers else None)
-        if worker is None:
-            return {"ready": False, "backend": "none", "note": "no workers configured"}
-        def stage_status(stage: str, spec):
+
+        def stage_status(spec):
             if spec.engine == "synthetic":
                 return {"engine": spec.engine, "real_connectome_topology": False, "installed": True}
             pack_id, filename = spec.config.get("pack_id"), spec.config.get("file")
@@ -110,16 +112,47 @@ class HivePipeline:
                 "pack_id": pack_id,
                 "file": filename,
             }
-        larva = stage_status("larva", worker.larva)
-        bee = stage_status("bee", worker.bee)
-        ready = bool(larva["installed"] and bee["installed"] and larva["real_connectome_topology"] and bee["real_connectome_topology"])
+
+        control = {"ready": False, "larva": None, "bee": None}
+        if worker is not None:
+            larva = stage_status(worker.larva)
+            bee = stage_status(worker.bee)
+            control_ready = bool(
+                larva["installed"] and bee["installed"]
+                and larva["real_connectome_topology"] and bee["real_connectome_topology"]
+            )
+            control = {
+                "ready": control_ready,
+                "backend": f"{larva['engine']} → {bee['engine']}",
+                "larva": larva,
+                "bee": bee,
+                "classification": "control_only",
+                "note": "The currently executable Cook → MaleCNS locomotor path is a development/control path, not the primary full-MaleCNS experiment.",
+            }
+
+        if self.experiment_contract_path and self.experiment_contract_path.exists():
+            contract = load_experiment_contract(self.experiment_contract_path)
+            primary = experiment_readiness(
+                contract,
+                data_dir=self.data_dir,
+                supported_engines={"synthetic", "cook2019_connectome", "malecns_locomotor"},
+            )
+        else:
+            primary = {
+                "status": "blocked",
+                "primary_experiment_ready": False,
+                "blockers": ["experiment contract is unavailable"],
+            }
+
         return {
-            "ready": ready,
-            "backend": f"{larva['engine']} → {bee['engine']}",
-            "real_connectome_runtime_ready": ready,
-            "larva": larva,
-            "bee": bee,
-            "note": "Measured connectome topology is executed on each run when ready; input encoding and compact dynamics are engineered experimental layers.",
+            "ready": bool(primary.get("primary_experiment_ready")),
+            "backend": control.get("backend", "none"),
+            "primary_experiment_ready": bool(primary.get("primary_experiment_ready")),
+            "real_connectome_runtime_ready": False,
+            "study_mode": "PRIMARY" if primary.get("primary_experiment_ready") else "CONTROL_ONLY",
+            "primary": primary,
+            "control_runtime": control,
+            "note": "Full MaleCNS execution is the primary study requirement. Reduced graphs can run only as explicitly labeled controls.",
         }
 
     def reset(self, worker_id: str | None = None):
@@ -279,6 +312,8 @@ class HivePipeline:
             labels=labels if worker.outputs.write_labels else [],
             unresolved=unresolved,
             execution={
+                "study_role": "control_only" if worker.bee.engine == "malecns_locomotor" else "experimental",
+                "primary_experiment": False,
                 "larva": {"engine": larva.engine, "real_connectome_topology": bool(larva.metadata.get("real_connectome_topology")), "metadata": larva.metadata},
                 "bee": {"engine": bee.engine, "real_connectome_topology": bool(bee.metadata.get("real_connectome_topology")), "metadata": bee.metadata},
                 "jev": {"requested": jev_enabled, "called": decisions.provider == "venice", "provider": decisions.provider, "model": decisions.model},

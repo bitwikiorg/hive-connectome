@@ -2,7 +2,8 @@
 
 HIVE Connectome is an experimental runtime for **paired mini-brains + typed decisions + optional LLM reasoning + tools**.
 
-> **Current runtime truth (v0.5):** the default Larva→Bee path executes measured connectome topology: the corrected Cook *C. elegans* hermaphrodite wiring followed by a pinned 1,045-neuron / 17,224-edge MaleCNS v1.0 locomotor subgraph. Generic event→sensory input mapping and compact neural dynamics are engineered experimental layers. Synthetic engines remain available only as explicit baselines. Every run includes an execution receipt showing the exact neural engines and whether a live Venice/JEV call actually occurred. See [`docs/HOW_TO_USE.md`](docs/HOW_TO_USE.md).
+
+> **Current runtime truth (v0.6 semantic reset):** the primary study is **full Cook C. elegans → full MaleCNS v1.0**. That primary experiment is currently **BLOCKED / NOT READY** because HIVE does not yet implement full MaleCNS execution. The existing 1,045-neuron / 17,224-edge MaleCNS locomotor path remains runnable only as an explicitly labeled **control/development path**. Full MaleCNS is required by the experiment contract and is not an optional substitute. See [`docs/STATE.md`](docs/STATE.md).
 
 The first deployment target is **Windows + Docker Desktop**. The runtime is deliberately modular so experiments can change the data environment, neural substrate, decision layer, model provider, schedule, and evaluation without rewriting the application.
 
@@ -54,40 +55,18 @@ Everything else stays fixed.
 
 See `docs/WORKERS.md`, `docs/EVALUATION.md`, `docs/REPO_LEARNINGS.md`, and `docs/BROWSER_LAB.md`.
 
-## Current v0.5 scope
+## Current v0.6 state
 
-Implemented and covered by the automated suite:
+The repository is stabilized around a machine-readable experiment contract:
 
-- FastAPI local runtime and app factory
-- browser experiment GUI
-- editable/saved complete worker configurations
-- executable Cook corrected C. elegans connectome engine
-- executable MaleCNS v1.0 1,045-neuron locomotor-subgraph LIF engine
-- deterministic synthetic engines retained as explicit controls
-- SQLite event/run store
-- Venice JEV/Decisions adapter
-- LM Studio OpenAI-compatible LLM adapter
-- Venice Chat Completions LLM adapter
-- independent JEV/LLM run overrides and four-way eval matrix
-- HTTP JSON, RSS, and local-file data sources
-- heartbeat daemon
-- worker interval/cron runtime
-- explicit cron tasks, including source polling
-- simulation endpoint
-- MCP server surface
-- pinned-integrity connectome installer (SHA-256 and Git blob identity)
-- Windows/Docker Desktop configuration
-- automatic installation of the two default runtime connectome packs
-- optional full ~1.1 GB MaleCNS research pack
+- primary Larva = full corrected Cook C. elegans connectome;
+- primary Bee = full MaleCNS v1.0;
+- JEV and LLM remain independent toggles;
+- reduced MaleCNS, synthetic, shuffled, no-connectome, Larva-only, and Bee-only paths are controls only;
+- primary readiness requires the full datasets to be installed, verified, and actually executed by their declared engines;
+- the current full MaleCNS execution engine is not implemented, so `primary_experiment_ready=false`.
 
-Intentionally not claimed as complete:
-
-- higher-fidelity Cook physiological model / receptor-aware signs
-- full MaleCNS graph execution beyond the default locomotor subgraph
-- Drosophila larval mushroom-body runtime
-- automated browser DOM/OCR adapter
-- distributed worker/Waggle bus
-- irreversible external-action executors
+Runnable development/control surfaces remain available for testing the application, providers, data flow, and evaluation harness, but they must not be interpreted as the primary study.
 
 Unsupported experiment surfaces remain visible as planned/experimental rather than silently pretending to execute.
 
@@ -112,6 +91,7 @@ Open:
 
 - GUI/API: `http://127.0.0.1:8088`
 - MCP: `http://127.0.0.1:8090/mcp`
+
 
 ## Updating an existing install
 
@@ -141,11 +121,11 @@ The GUI exposes only fixed source manifests. Downloads are:
 
 1. streamed to `.part`
 2. size-bounded
-3. SHA-256 or pinned Git-blob identity verified
+3. SHA-256 verified
 4. atomically renamed
 5. recorded in an install receipt
 
-The installer never executes downloaded files. After verification, the default runtime explicitly loads the two runtime packs on the next neural run.
+The installer never executes downloaded files. Verification only establishes data integrity; it does not satisfy the primary execution gate.
 
 ## Tests
 
@@ -159,6 +139,7 @@ The test configuration enforces **>=80% branch-aware coverage**. Browser renderi
 
 ## Docs
 
+- `docs/STATE.md`
 - `docs/GETTING_STARTED.md`
 - `docs/HOW_TO_USE.md`
 - `docs/REFERENCE_CORPUS.md`

@@ -4,8 +4,10 @@ from hive_connectome.runtime_status import neural_runtime_status
 
 def test_runtime_status_static_helper_defers_to_live_health():
     runtime = neural_runtime_status()
-    assert runtime["backend"] == "connectome-runtime-v0.5"
-    assert runtime["real_connectome_runtime_ready"] is None
+    assert runtime["backend"] == "connectome-runtime-v0.6-state-reset"
+    assert runtime["primary_experiment_ready"] is False
+    assert runtime["real_connectome_runtime_ready"] is False
+    assert runtime["study_mode"] == "CONTROL_ONLY"
     assert "biological_connectome_executing" not in runtime
 
 
@@ -14,7 +16,9 @@ def test_home_page_is_human_first_not_raw_json_first():
     assert "What do you want HIVE to do?" in text
     assert "Your result will appear here in normal language." in text
     assert "Raw JSON is available underneath the result" in text
-    assert "Real connectome runtime" in text
+    assert "Primary experiment" in text
+    assert "full MaleCNS" in text
+    assert "Run development control" in text
     assert "Cook C. elegans" in text
     assert "Advanced experiment controls" in text
 

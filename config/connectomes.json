@@ -5,7 +5,7 @@
       "id": "worm-cook-2020",
       "name": "C. elegans Cook 2020 corrected connectome",
       "species": "Caenorhabditis elegans",
-      "role": "Default Larva runtime: Cook et al. whole-animal hermaphrodite wiring",
+      "role": "Primary Larva dataset: full corrected Cook hermaphrodite connectome",
       "installable": true,
       "source_reference": "Cook et al.; OpenWorm ConnectomeToolbox",
       "files": [
@@ -15,7 +15,8 @@
           "sha256": "1f4fdbf84746b69b49a8da0816f52787860ce349b638dce37924ba80f90c70c9"
         }
       ],
-      "runtime_default": true
+      "runtime_default": false,
+      "primary_required": true
     },
     {
       "id": "worm-witvliet-development",
@@ -39,27 +40,36 @@
       "id": "fly-malecns-locomotor",
       "name": "MaleCNS v1.0 locomotor runtime subgraph",
       "species": "Drosophila melanogaster",
-      "role": "Default Bee runtime: measured 1,045-neuron / 17,224-edge MaleCNS subgraph",
+      "role": "CONTROL ONLY: 1,045-neuron / 17,224-edge MaleCNS locomotor subgraph",
       "installable": true,
-      "runtime_default": true,
+      "runtime_default": false,
       "source_reference": "MaleCNS v1.0; DesktopFly pinned extraction at 32b00011e83c3dc85fa3ea0b3934155b04f1635d",
       "license": "CC BY 4.0 (MaleCNS-derived data)",
-      "files": [{"name":"locomotor_circuit.json","url":"https://raw.githubusercontent.com/DenisSergeevitch/desktop-fly/32b00011e83c3dc85fa3ea0b3934155b04f1635d/data/locomotor_circuit.json","bytes":1076374,"git_blob_sha":"2b48900d2bac49bf2b58820f29e3491fd3dd4691"}]
+      "files": [
+        {
+          "name": "locomotor_circuit.json",
+          "url": "https://raw.githubusercontent.com/DenisSergeevitch/desktop-fly/32b00011e83c3dc85fa3ea0b3934155b04f1635d/data/locomotor_circuit.json",
+          "bytes": 1076374,
+          "git_blob_sha": "2b48900d2bac49bf2b58820f29e3491fd3dd4691"
+        }
+      ],
+      "control_only": true
     },
     {
       "id": "fly-malecns-v1",
       "name": "MaleCNS v1.0",
       "species": "Drosophila melanogaster",
-      "role": "Full MaleCNS research dataset; large optional pack, not the default runtime engine",
+      "role": "PRIMARY Bee dataset: full MaleCNS v1.0; required for the study",
       "installable": true,
       "source_reference": "Janelia FlyEM / Google Research; MaleCNS v1.0",
-      "warning": "Approximately 1.1 GB total. Download only when ready.",
+      "warning": "Approximately 1.1 GB total. Required for the primary experiment; full-graph execution engine is not implemented in v0.6.",
       "files": [
         {"name":"annotations.feather","url":"https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/body-annotations-male-cns-v1.0-minconf-0.5.feather","bytes":14483314,"sha256":"2177e246113e4cfbf1e7772ec37c6da1955ff22e8063d0b1f833101f99a9a3b2"},
         {"name":"neurotransmitters.feather","url":"https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/body-neurotransmitters-male-cns-v1.0.feather","bytes":43282834,"sha256":"95c9289220663abeb3409f3ad9e5a7f8a53f8093f5139d15502cd08da8879621"},
         {"name":"edges.feather","url":"https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/connectome-weights-male-cns-v1.0-minconf-0.5.feather","bytes":1051241946,"sha256":"e35da783d1c686b2b58b3b87cd6a403ae43bfcfba8bff28e08ef752c1a56afc1"}
       ],
-      "runtime_default": false
+      "runtime_default": false,
+      "primary_required": true
     },
     {"id":"fly-larval-mushroom-body","name":"Drosophila larval mushroom body connectome","species":"Drosophila melanogaster larva","role":"future associative-memory mini-brain","installable":false,"source_reference":"Eichler et al., Nature 2017, DOI 10.1038/nature23455","reason":"No redistribution-safe direct dataset URL + checksum has been pinned in HIVE yet.","files":[]}
   ]

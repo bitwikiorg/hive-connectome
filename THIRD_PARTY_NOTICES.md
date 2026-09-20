@@ -31,7 +31,7 @@ Upstream: https://github.com/vdmkenny/celeganssim
 
 ## MaleCNS locomotor runtime data
 
-The default HIVE Bee runtime downloads a pinned MaleCNS v1.0 locomotor subgraph
+The HIVE development/control Bee runtime downloads a pinned MaleCNS v1.0 locomotor subgraph
 from DesktopFly commit `32b00011e83c3dc85fa3ea0b3934155b04f1635d`.
 
 - Upstream extraction: https://github.com/DenisSergeevitch/desktop-fly

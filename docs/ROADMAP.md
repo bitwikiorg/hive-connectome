@@ -23,14 +23,16 @@
 - [ ] benchmark synthetic vs real vs shuffled worm
 - [ ] checkpoint/state reset
 
-## Phase 2 — real FlyCore
+## Phase 2 — primary full MaleCNS Bee
 
-- [x] execute pinned 1,045-neuron / 17,224-edge MaleCNS locomotor subgraph
-- [x] integrate LIF-style sparse dynamics adapted from DesktopFly
-- [ ] parse/execute the full MaleCNS Feather graph
+- [ ] parse and execute the full pinned MaleCNS v1.0 Feather graph **(primary readiness blocker)**
+- [ ] validate loaded graph counts against the canonical experiment contract
 - [ ] immutable graph + multiple independent state vectors
+- [ ] Cook → full MaleCNS state handoff
 - [ ] Windows CPU/GPU benchmarks
-- [ ] full graph vs task-specific subgraphs
+- [x] execute pinned 1,045-neuron / 17,224-edge MaleCNS locomotor subgraph **as a control only**
+- [x] integrate LIF-style sparse dynamics for the locomotor control, adapted from DesktopFly
+- [ ] full graph vs task-specific subgraphs as an explicit ablation
 
 ## Phase 3 — associative larval mini-brain
 
