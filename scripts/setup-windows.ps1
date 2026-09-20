@@ -61,6 +61,9 @@ if (-not $ok) {
 Write-Host "HIVE is running."
 Write-Host "GUI: http://127.0.0.1:8088"
 Write-Host "MCP: http://127.0.0.1:8090/mcp"
+Write-Host "Connectome datasets are NOT downloaded automatically."
+Write-Host "Use the GUI Connectomes panel to download + verify data explicitly."
+Write-Host "Current HIVE still uses synthetic recurrent test engines; downloaded connectome data is not executed yet."
 
 try {
     $providers = Invoke-RestMethod -Uri "http://127.0.0.1:8088/api/providers/status" -TimeoutSec 15

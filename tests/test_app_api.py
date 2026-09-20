@@ -10,12 +10,12 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
     assert health.status_code == 200
     body = health.json()
     assert body["ok"] is True
-    assert body["version"] == "0.3.2"
+    assert body["version"] == "0.4.0"
     assert {"scout", "browser", "stream"}.issubset(body["workers"])
 
     root = client.get("/")
     assert root.status_code == 200
-    assert "CONNECTOME LAB" in root.text
+    assert "What do you want HIVE to do?" in root.text
 
     templates = client.get("/api/experiment-templates").json()["templates"]
     assert {x["id"] for x in templates} >= {"manual_classifier", "browser_dom_reader", "stream_watch"}

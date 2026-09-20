@@ -288,6 +288,196 @@
         "emit_to_hivemind": false,
         "next_workers": []
       }
+    },
+    {
+      "id": "keeper",
+      "name": "Keeper",
+      "larva": {
+        "engine": "synthetic",
+        "state_size": 16,
+        "substrate": "c_elegans",
+        "config": {}
+      },
+      "bee": {
+        "engine": "synthetic",
+        "state_size": 64,
+        "substrate": "drosophila",
+        "config": {}
+      },
+      "description": "Decides whether new information represents a durable state change worth remembering.",
+      "role": "Maintain durable state without overwriting raw evidence.",
+      "experiment": {
+        "kind": "manual",
+        "objective": "Determine whether supplied evidence changes durable state and what should be remembered.",
+        "task_prompt": "Compare this input with current state. Identify only durable changes worth recording, preserve provenance, and list unresolved conflicts.",
+        "expected_output": "durable change + memory decision + unresolved conflicts",
+        "eval_metric": "memory precision + missed durable changes",
+        "notes": ""
+      },
+      "data_environment": {
+        "mode": "manual",
+        "source_ids": [],
+        "poll_interval_seconds": 60,
+        "always_on": false,
+        "browser_extract": "dom",
+        "ocr_enabled": false,
+        "upstream_workers": []
+      },
+      "jev": {
+        "enabled": true,
+        "provider": "venice",
+        "model": "jev-latest",
+        "feedback_to_brain": true,
+        "questions": {
+          "meaningful_signal": {
+            "type": "noul",
+            "instructions": "Does this evidence imply a durable state change worth remembering?"
+          },
+          "novelty": {
+            "type": "score",
+            "instructions": "How material is the state change?",
+            "criteria": [
+              "none",
+              "minor",
+              "major"
+            ]
+          },
+          "route": {
+            "type": "choice",
+            "instructions": "What should happen to this state change?",
+            "criteria": {
+              "store": "record durable state",
+              "inspect": "needs more evidence",
+              "escalate": "semantic reconciliation needed",
+              "ignore": "no durable change"
+            }
+          },
+          "llm_needed": {
+            "type": "noul",
+            "instructions": "Is open-ended reasoning needed to reconcile this with prior state?"
+          }
+        },
+        "llm_gate_threshold": 0.65
+      },
+      "llm": {
+        "enabled": true,
+        "provider": "lmstudio",
+        "model": null,
+        "activation": "jev_gate",
+        "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
+        "temperature": 0.2,
+        "verify_with_jev": true
+      },
+      "runtime": {
+        "mode": "on_demand",
+        "interval_seconds": 60,
+        "cron": null,
+        "persist_brain_state": true,
+        "max_events_per_tick": 25,
+        "enabled": false
+      },
+      "outputs": {
+        "save_event": true,
+        "save_run": true,
+        "write_labels": true,
+        "emit_to_hivemind": false,
+        "next_workers": []
+      }
+    },
+    {
+      "id": "auditor",
+      "name": "Auditor",
+      "larva": {
+        "engine": "synthetic",
+        "state_size": 16,
+        "substrate": "c_elegans",
+        "config": {}
+      },
+      "bee": {
+        "engine": "synthetic",
+        "state_size": 64,
+        "substrate": "drosophila",
+        "config": {}
+      },
+      "description": "Checks a claim against supplied evidence and preserves contradictions instead of smoothing them away.",
+      "role": "Audit support, contradictions, and missing evidence.",
+      "experiment": {
+        "kind": "manual",
+        "objective": "Determine whether a claim is supported by supplied evidence and surface contradictions or evidence gaps.",
+        "task_prompt": "Audit the claim against the supplied evidence. Separate supported facts, contradictions, and missing evidence. Do not repair unsupported claims.",
+        "expected_output": "support status + contradictions + missing evidence",
+        "eval_metric": "claim-support accuracy + contradiction recall",
+        "notes": ""
+      },
+      "data_environment": {
+        "mode": "manual",
+        "source_ids": [],
+        "poll_interval_seconds": 60,
+        "always_on": false,
+        "browser_extract": "dom",
+        "ocr_enabled": false,
+        "upstream_workers": []
+      },
+      "jev": {
+        "enabled": true,
+        "provider": "venice",
+        "model": "jev-latest",
+        "feedback_to_brain": true,
+        "questions": {
+          "meaningful_signal": {
+            "type": "noul",
+            "instructions": "Is there a material claim here that can be audited against the evidence?"
+          },
+          "novelty": {
+            "type": "score",
+            "instructions": "How material is any discrepancy?",
+            "criteria": [
+              "none",
+              "minor",
+              "major"
+            ]
+          },
+          "route": {
+            "type": "choice",
+            "instructions": "Choose the audit outcome.",
+            "criteria": {
+              "store": "supported enough to record",
+              "inspect": "needs more evidence",
+              "escalate": "requires semantic audit",
+              "ignore": "no auditable claim"
+            }
+          },
+          "llm_needed": {
+            "type": "noul",
+            "instructions": "Is prose-level reasoning needed to audit this claim?"
+          }
+        },
+        "llm_gate_threshold": 0.65
+      },
+      "llm": {
+        "enabled": true,
+        "provider": "lmstudio",
+        "model": null,
+        "activation": "jev_gate",
+        "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
+        "temperature": 0.2,
+        "verify_with_jev": true
+      },
+      "runtime": {
+        "mode": "on_demand",
+        "interval_seconds": 60,
+        "cron": null,
+        "persist_brain_state": true,
+        "max_events_per_tick": 25,
+        "enabled": false
+      },
+      "outputs": {
+        "save_event": true,
+        "save_run": true,
+        "write_labels": true,
+        "emit_to_hivemind": false,
+        "next_workers": []
+      }
     }
   ]
 }

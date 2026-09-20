@@ -21,6 +21,7 @@ from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, PipelineReques
 from hive_connectome.settings import Settings
 from hive_connectome.sources import poll_source
 from hive_connectome.workers import WorkerSpec, WorkerStore
+from hive_connectome.runtime_status import neural_runtime_status
 
 
 def create_app(settings_override: Settings | None = None, *, start_heartbeat: bool = True) -> FastAPI:
@@ -72,7 +73,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             await heartbeat.stop()
         db.close()
 
-    app = FastAPI(title="HIVE Connectome", version="0.3.2", lifespan=lifespan)
+    app = FastAPI(title="HIVE Connectome", version="0.4.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.db = db
     app.state.worker_store = worker_store
@@ -92,7 +93,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     async def health():
         return {
             "ok": True,
-            "version": "0.3.2",
+            "version": "0.4.0",
+            "neural_runtime": neural_runtime_status(),
             "venice_configured": venice is not None,
             "lmstudio_model": settings.llm_model,
             "workers": [w.id for w in worker_store.list()],

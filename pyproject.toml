@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hive-connectome"
-version = "0.3.2"
+version = "0.4.0"
 description = "Experimental runtime for paired neural state, typed decisions, optional LLM reasoning, data sources, MCP, scheduling, and evaluation."
 readme = "README.md"
 requires-python = ">=3.11"

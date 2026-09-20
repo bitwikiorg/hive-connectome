@@ -2,6 +2,8 @@
 
 HIVE Connectome is an experimental runtime for **paired mini-brains + typed decisions + optional LLM reasoning + tools**.
 
+> **Current runtime truth:** HIVE currently executes deterministic synthetic recurrent test stages. Cook/Witvliet/MaleCNS packs can be downloaded and SHA-256 verified, but the current runtime does **not** execute those biological connectomes yet. The GUI reports this explicitly. See [`docs/HOW_TO_USE.md`](docs/HOW_TO_USE.md).
+
 The first deployment target is **Windows + Docker Desktop**. The runtime is deliberately modular so experiments can change the data environment, neural substrate, decision layer, model provider, schedule, and evaluation without rewriting the application.
 
 ## Core loop
@@ -52,7 +54,7 @@ Everything else stays fixed.
 
 See `docs/WORKERS.md`, `docs/EVALUATION.md`, `docs/REPO_LEARNINGS.md`, and `docs/BROWSER_LAB.md`.
 
-## Current v0.3.2 scope
+## Current v0.4 scope
 
 Implemented and covered by the automated suite:
 
@@ -156,6 +158,8 @@ The test configuration enforces **>=80% branch-aware coverage**. Browser renderi
 ## Docs
 
 - `docs/GETTING_STARTED.md`
+- `docs/HOW_TO_USE.md`
+- `docs/REFERENCE_CORPUS.md`
 - `docs/ARCHITECTURE.md`
 - `docs/WORKERS.md`
 - `docs/EVALUATION.md`

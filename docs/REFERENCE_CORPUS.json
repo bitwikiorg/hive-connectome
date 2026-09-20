@@ -1,0 +1,1422 @@
+{
+  "title": "HIVE canonical reference corpus",
+  "updated": "2026-09-19",
+  "policy": {
+    "reference_is_not_dependency": true,
+    "review_levels": {
+      "source-inspected": "Selected implementation/source files were read in addition to project documentation.",
+      "readme-reviewed": "README/project documentation was read; not a line-by-line source audit.",
+      "reviewed": "Previously audited at repository/documentation level in this project.",
+      "research-reviewed": "Primary/secondary source was inspected for the HIVE research question.",
+      "metadata-verified": "Repository/location existence was verified, but documentation was not fully reviewed.",
+      "reference-only": "Saved as a supporting reference; no substantive audit claim.",
+      "discussed": "Discussed/supplied; preserved without claiming substantive review."
+    }
+  },
+  "count": 120,
+  "entries": [
+    {
+      "id": "fly-ai",
+      "name": "fly.ai",
+      "url": "https://github.com/alextitonis/fly.ai",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "core",
+      "note": "MaleCNS flybrain runtime; also contains SSH Fighter and reusable reservoir/readout utilities.",
+      "aliases": []
+    },
+    {
+      "id": "flmodel-flm",
+      "name": "FLM / Fly Language Model (org location)",
+      "url": "https://github.com/FLModel/flm",
+      "category": "connectome-language",
+      "kind": "repository",
+      "review": "metadata-verified",
+      "source": "core",
+      "note": "Preserved as a canonical project location mentioned by the user; a second public location also exists.",
+      "aliases": [
+        "nftechie/flm"
+      ]
+    },
+    {
+      "id": "nftechie-flm",
+      "name": "FLM / Fly Language Model (nftechie location)",
+      "url": "https://github.com/nftechie/flm",
+      "category": "connectome-language",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Fixed MaleCNS graph plus trained small adapter; matched direct-input control is especially relevant.",
+      "aliases": [
+        "FLModel/flm"
+      ]
+    },
+    {
+      "id": "flmodel-flybook",
+      "name": "Flybook",
+      "url": "https://github.com/FLModel/flybook",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "metadata-verified",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "fly-as-a-lm",
+      "name": "fly-as-a-lm",
+      "url": "https://github.com/leetae9yu/fly-as-a-lm",
+      "category": "connectome-language",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "core",
+      "note": "Strong factorial/shuffle controls; language task experiments use a subset rather than the full graph.",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "8787647a09f0c2730516b1f47e6bf5248a1ee0c4",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "gopigo",
+      "name": "GoPiGo C. elegans connectome robot",
+      "url": "https://github.com/Connectome/GoPiGo",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "core",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "jonnonz-c302",
+      "name": "jonnonz1/c302",
+      "url": "https://github.com/jonnonz1/c302",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "core",
+      "note": "",
+      "aliases": [
+        "openworm/c302"
+      ]
+    },
+    {
+      "id": "openworm-c302",
+      "name": "OpenWorm c302",
+      "url": "https://github.com/openworm/c302",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Current OpenWorm NeuroML 2 modelling framework; preferred upstream reference.",
+      "aliases": [
+        "jonnonz1/c302"
+      ]
+    },
+    {
+      "id": "celegans-neuroml",
+      "name": "OpenWorm CElegansNeuroML",
+      "url": "https://github.com/openworm/CElegansNeuroML",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Historical project; README points to c302 as the newer initiative.",
+      "aliases": []
+    },
+    {
+      "id": "openworm-site",
+      "name": "OpenWorm",
+      "url": "https://openworm.org/",
+      "category": "worm-runtime",
+      "kind": "website",
+      "review": "reviewed",
+      "source": "core",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "celeganssim",
+      "name": "celeganssim",
+      "url": "https://github.com/vdmkenny/celeganssim",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Whole-organism C. elegans simulator and checksum/provenance reference.",
+      "aliases": []
+    },
+    {
+      "id": "worm-sim",
+      "name": "worm-sim",
+      "url": "https://github.com/heyseth/worm-sim",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "metadata-verified",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "nematoduino",
+      "name": "Nematoduino",
+      "url": "https://github.com/nategri/nematoduino",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "worm-whisperer",
+      "name": "worm-whisperer",
+      "url": "https://github.com/kairess/worm-whisperer",
+      "category": "worm-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Pre-registered experiments, preserved negative results, wiring-shuffle controls.",
+      "aliases": []
+    },
+    {
+      "id": "connectome-gpt-worm",
+      "name": "ConnectomeGPT-Worm",
+      "url": "https://huggingface.co/drmylesgarveylabs/connectome-gpt-worm",
+      "category": "connectome-language",
+      "kind": "model-page",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "C. elegans connectome inserted as a biological intermediate layer with explicit dense/random controls.",
+      "aliases": []
+    },
+    {
+      "id": "desktop-fly",
+      "name": "desktop-fly",
+      "url": "https://github.com/DenisSergeevitch/desktop-fly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "master",
+        "sha": "32b00011e83c3dc85fa3ea0b3934155b04f1635d",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "doomfly",
+      "name": "DOOMFLY",
+      "url": "https://github.com/nftechie/doomfly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "71ecf53d78eaffaf1a57ed7b0ccf5d458abc9f33",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "doom-x-fly",
+      "name": "DOOM-x-Fly",
+      "url": "https://github.com/Aur1ety/DOOM-x-Fly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "metadata-verified",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "fly-ocr",
+      "name": "fly_ocr",
+      "url": "https://github.com/jerryjliu/fly_ocr",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "Connectome + small learned decoder; strong separation of fixed substrate and learned readout.",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "48cf341e99c17dc911fb09fdc8419d98b4d0ea86",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "fly-chess",
+      "name": "fly-chess",
+      "url": "https://github.com/tolatolatop/fly-chess",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "0855b5fd90872e8f3c9669eab9e325292399cae6",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "fruit-fly-lab",
+      "name": "fruit-fly-lab",
+      "url": "https://github.com/vaibhavkedarisetti/fruit-fly-lab",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "26672e06427c12c61536ce1bd93dae7442944681",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "lulzx-fly-brain",
+      "name": "Lulzx/fly-brain",
+      "url": "https://github.com/Lulzx/fly-brain",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "200874b9a782c9b12bb98ca1aa134d044254bf91",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "fly-dating-app",
+      "name": "fly-dating-app",
+      "url": "https://github.com/jaredpalmer/fly-dating-app",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "ca9ef5b3989b57da4ebd159670c13df4607fe41d",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "male-cns",
+      "name": "MaleCNS v1.0",
+      "url": "https://male-cns.janelia.org/",
+      "category": "connectome-dataset",
+      "kind": "dataset-portal",
+      "review": "research-reviewed",
+      "source": "core",
+      "note": "Canonical adult male Drosophila CNS data portal.",
+      "aliases": []
+    },
+    {
+      "id": "fly-wirehead",
+      "name": "fly-wirehead",
+      "url": "https://github.com/mattyhempstead/fly-wirehead",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "fcefe9441f80e25aab713411ebced53f5e5ea172",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "flybody",
+      "name": "FlyBody",
+      "url": "https://github.com/TuragaLab/flybody",
+      "category": "embodiment",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "d015e9bfe441bd90ae431bac24c55cb74bdbce26",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "fly-766",
+      "name": "fly-766/fly",
+      "url": "https://github.com/fly-766/fly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "Useful authority split: neural proposal vs admissibility/accounting/verification.",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "af0404117c19b14d5da0c75ad714841c2a579013",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "flycoder",
+      "name": "FlyCoder",
+      "url": "https://github.com/tolga-ileri/FlyCoder",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "3b5c60238629a24985eb0e387fc5af517f3fa269",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "amfly",
+      "name": "amfly",
+      "url": "https://github.com/aravpanwar/amfly",
+      "category": "multi-connectome",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "",
+      "aliases": [],
+      "pin": {
+        "branch": "main",
+        "sha": "d068cac0dbbaa22a5079455e1824c983cce80868",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "yaxis-fly-brain",
+      "name": "yaxis-lab/fly-brain",
+      "url": "https://github.com/yaxis-lab/fly-brain",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "inspiration",
+      "note": "Sparse repository; retained as a lower-confidence API/data reference.",
+      "aliases": [],
+      "pin": {
+        "branch": "master",
+        "sha": "203c0f2bb439bdadc540da4e91affc0e3fc6dfbc",
+        "captured_on": "2026-09-19"
+      }
+    },
+    {
+      "id": "stonkfly",
+      "name": "Stonkfly",
+      "url": "https://github.com/nftechie/stonkfly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Full MaleCNS proposes trades while deterministic code/AgentKit owns execution limits.",
+      "aliases": []
+    },
+    {
+      "id": "fly64",
+      "name": "Fly64",
+      "url": "https://github.com/ornata/fly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "MaleCNS drives SM64; dashboard makes neural readouts and engineered mappings visible.",
+      "aliases": []
+    },
+    {
+      "id": "rembish-fruit-fly",
+      "name": "rembish/fruit-fly",
+      "url": "https://github.com/rembish/fruit-fly",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "snedea-flybrain",
+      "name": "snedea/flybrain",
+      "url": "https://github.com/snedea/flybrain",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "metadata-verified",
+      "source": "earlier-session",
+      "note": "Repository exists; README was not readable at the path queried.",
+      "aliases": []
+    },
+    {
+      "id": "drosophila-brain",
+      "name": "Fo170/drosophila_brain",
+      "url": "https://github.com/Fo170/drosophila_brain",
+      "category": "larval-connectome",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "chimera",
+      "name": "CHIMERA",
+      "url": "https://github.com/caparison1234/chimera",
+      "category": "larval-connectome",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Larval connectome + language-to-sensory translator + MuJoCo body.",
+      "aliases": []
+    },
+    {
+      "id": "flypoke",
+      "name": "flypoke",
+      "url": "https://github.com/vshapenko/flypoke",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "CPU-oriented FlyWire spiking simulation precedent.",
+      "aliases": []
+    },
+    {
+      "id": "ommatid",
+      "name": "Ommatid",
+      "url": "https://github.com/FutureJJ/ommatid",
+      "category": "connectome-runtime",
+      "kind": "repository",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "MaleCNS/FlyVis body-transfer experiment; pre-registration and negative results are useful methodology.",
+      "aliases": []
+    },
+    {
+      "id": "fly-brain-bridge",
+      "name": "Fly Brain Bridge",
+      "url": "https://www.doriantodd.com/projects/fly-brain-bridge/",
+      "category": "embodiment",
+      "kind": "website",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "cyberfly",
+      "name": "CyberFly",
+      "url": "https://flymaxxing.com/projects/cyberfly/",
+      "category": "embodiment",
+      "kind": "website",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "flymaxxing",
+      "name": "Flymaxxing project index",
+      "url": "https://flymaxxing.com/",
+      "category": "community-index",
+      "kind": "website",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "neuromechfly-v2",
+      "name": "NeuroMechFly v2",
+      "url": "https://www.nature.com/articles/s41592-024-02497-y",
+      "category": "embodiment",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "hailo-apps",
+      "name": "Hailo Apps",
+      "url": "https://github.com/hailo-ai/hailo-apps",
+      "category": "hardware-runtime",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "earlier-session",
+      "note": "Pi 5/Hailo deployment reference; not required by current CPU-first HIVE.",
+      "aliases": []
+    },
+    {
+      "id": "newsjack",
+      "name": "newsjack",
+      "url": "https://github.com/elvisun/newsjack",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Job-first capability UX; human and agent install paths.",
+      "aliases": []
+    },
+    {
+      "id": "jev-semgrep",
+      "name": "jev-semgrep",
+      "url": "https://github.com/uehaj/jev-semgrep",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Semantic proposition grep; AND/OR/NOT composition.",
+      "aliases": []
+    },
+    {
+      "id": "nerve",
+      "name": "NERVE",
+      "url": "https://github.com/h100envy/nerve",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "source-inspected",
+      "source": "user-current",
+      "note": "Each node declares ownership/boundary; deterministic spine and reflexes.",
+      "aliases": []
+    },
+    {
+      "id": "semif",
+      "name": "SemIf",
+      "url": "https://github.com/TheoLeeCJ/SemIf",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Open typed-decision interface using model logits; useful local-decision precedent.",
+      "aliases": []
+    },
+    {
+      "id": "jev-x-sentiment",
+      "name": "Jev X Sentiment Analysis",
+      "url": "https://github.com/brainstormity/Jev-X-Sentiment-Analysis",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Deterministic preprocessing + Jev + human-readable decision card.",
+      "aliases": []
+    },
+    {
+      "id": "jev-trades",
+      "name": "Jev Trades",
+      "url": "https://github.com/zadescoxp/Jev-Trades",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Concrete start/stop workflow and dashboard instead of raw model objects.",
+      "aliases": []
+    },
+    {
+      "id": "gliner2-ultrafast",
+      "name": "gliner2-ultrafast",
+      "url": "https://github.com/sahibzada-allahyar/gliner2-ultrafast",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Local GLiNER2 browser decision layer; corrected from user typo gliner2-ultrafastv.",
+      "aliases": [
+        "https://github.com/sahibzada-allahyar/gliner2-ultrafastv"
+      ]
+    },
+    {
+      "id": "jev-cookbook",
+      "name": "Jev Cookbook",
+      "url": "https://github.com/nexibeo/jev-cookbook",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Job/recipe framing; code prepares facts and owns actions.",
+      "aliases": []
+    },
+    {
+      "id": "openwork",
+      "name": "OpenWork",
+      "url": "https://github.com/different-ai/openwork",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Workspace/capability front door; internal tools hidden behind user jobs.",
+      "aliases": []
+    },
+    {
+      "id": "hermes-approvals",
+      "name": "hermes-jev-approvals",
+      "url": "https://github.com/anpicasso/hermes-jev-approvals",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Approval-only auxiliary task, strict missing-answer handling, operator policy.",
+      "aliases": []
+    },
+    {
+      "id": "clean-code-review",
+      "name": "Clean Code Review",
+      "url": "https://github.com/frostney/clean-code-review",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Evidence-first findings plus concise prose; structured MCP mirror.",
+      "aliases": []
+    },
+    {
+      "id": "citation-verifier",
+      "name": "citation-verifier",
+      "url": "https://github.com/MarissaFamularo/citation-verifier",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Citation/evidence verification reference.",
+      "aliases": []
+    },
+    {
+      "id": "jev-search",
+      "name": "Jev Search",
+      "url": "https://github.com/superagents-lab/jev-search",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Intent routing, concurrent search lanes, relevance ranking, human result stream.",
+      "aliases": []
+    },
+    {
+      "id": "pagegrade",
+      "name": "PageGrade",
+      "url": "https://github.com/kitze/pagegrade",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Progressive visible grades; raw JSON export is secondary.",
+      "aliases": []
+    },
+    {
+      "id": "jev-scout",
+      "name": "jev-scout",
+      "url": "https://github.com/AkashPriyadarshii/jev-scout",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Human terminal cards by default; JSON only on explicit flag.",
+      "aliases": []
+    },
+    {
+      "id": "jev-seo",
+      "name": "jev-seo",
+      "url": "https://github.com/AkashPriyadarshii/jev-seo",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Small local Rust CLI/MCP with task-specific commands.",
+      "aliases": []
+    },
+    {
+      "id": "supercov",
+      "name": "Supercov",
+      "url": "https://github.com/supercorp-ai/supercov",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Give the agent a job, show concise evidence by default, JSON optional.",
+      "aliases": []
+    },
+    {
+      "id": "jev-reranker",
+      "name": "jev-reranker",
+      "url": "https://github.com/hotchpotch/jev-reranker",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Evidence relevance filtering between retrieval and generation.",
+      "aliases": []
+    },
+    {
+      "id": "jev-skip",
+      "name": "jev-skip",
+      "url": "https://github.com/valentynkit/jev-skip",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "One typed classification pass, visible uncertainty, conservative action threshold.",
+      "aliases": []
+    },
+    {
+      "id": "jev-social",
+      "name": "Jev Social",
+      "url": "https://github.com/socai-io/jev-social",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Goal -> typed read-only operations -> cards/table/evidence report.",
+      "aliases": []
+    },
+    {
+      "id": "jev-ultrafast",
+      "name": "Jev Ultrafast",
+      "url": "https://github.com/browser-use/jev-ultrafast",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "source-inspected",
+      "source": "user-current",
+      "note": "Bounded observe/choose/act with freshness checks and inspectable trace.",
+      "aliases": []
+    },
+    {
+      "id": "jev-agent-browser",
+      "name": "jev-agent-browser",
+      "url": "https://github.com/forvela/jev-agent-browser",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Parent owns scope; Jev owns bounded next operation; structured handoff.",
+      "aliases": []
+    },
+    {
+      "id": "pi-typesafe-jev",
+      "name": "pi-typesafe-jev",
+      "url": "https://github.com/legacybridge-tech/pi-typesafe-jev",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Narrow judgment tools, question files, strict response validation.",
+      "aliases": []
+    },
+    {
+      "id": "jev-judgment",
+      "name": "jev-judgment",
+      "url": "https://github.com/HyunjunJeon/jev-judgment",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Jev as narrow pre-question/pre-action/post-failure judgment skill.",
+      "aliases": []
+    },
+    {
+      "id": "limpet",
+      "name": "limpet",
+      "url": "https://github.com/noplan-inc/limpet",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Invisible stop hook; user should not babysit the agent.",
+      "aliases": []
+    },
+    {
+      "id": "augustus",
+      "name": "Augustus",
+      "url": "https://github.com/24601/Augustus",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Large design atlas for placing typed judgment vs code/policy/LLM.",
+      "aliases": []
+    },
+    {
+      "id": "super-jev",
+      "name": "super-jev",
+      "url": "https://github.com/Kevthetech143/super-jev",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Evidence gates, fetch/routing, pre-rules, explicit no-match behavior.",
+      "aliases": []
+    },
+    {
+      "id": "fastbrowse",
+      "name": "fastbrowse",
+      "url": "https://github.com/agent-labs-dev/fastbrowse",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "source-inspected",
+      "source": "user-current",
+      "note": "Clean split: Jev picks; LLM reads/writes; code owns gates.",
+      "aliases": []
+    },
+    {
+      "id": "jev-browser",
+      "name": "Jev Browser",
+      "url": "https://github.com/jkudish/jev-browser",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Task+URL front door; final page/screenshot/trace; explicit statuses.",
+      "aliases": []
+    },
+    {
+      "id": "pi-fast-jev-compaction",
+      "name": "pi-fast-jev-compaction",
+      "url": "https://github.com/joelhooks/pi-fast-jev-compaction",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Verbatim conversation preservation while pruning stale tool history.",
+      "aliases": []
+    },
+    {
+      "id": "atomic",
+      "name": "Atomic",
+      "url": "https://github.com/bastani-inc/atomic",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Explicit, checkable execution graphs and long-running verification loops.",
+      "aliases": []
+    },
+    {
+      "id": "fast-jev-compaction",
+      "name": "fast-jev-compaction",
+      "url": "https://github.com/tamaratran/fast-jev-compaction",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Jev context compaction reference.",
+      "aliases": []
+    },
+    {
+      "id": "fast-dev-compaction",
+      "name": "fast-dev-compaction",
+      "url": "https://github.com/leonaaardob/fast-dev-compaction",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Codex port of Jev compaction with explicit fallback contract.",
+      "aliases": []
+    },
+    {
+      "id": "browserclaw",
+      "name": "BrowserClaw",
+      "url": "https://github.com/GoldenLoaf24h/browserclaw",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Dual-brain local browser architecture and human takeover.",
+      "aliases": []
+    },
+    {
+      "id": "jev-for-chrome",
+      "name": "Jev for Chrome",
+      "url": "https://github.com/chy4pro/jev-for-chrome",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Watch/step/copy-trace UX in the user’s real browser.",
+      "aliases": []
+    },
+    {
+      "id": "jev-pruner",
+      "name": "jev-pruner",
+      "url": "https://github.com/tamaratran/jev-pruner",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Prunes noisy tool output while preserving verbatim relevant chunks.",
+      "aliases": []
+    },
+    {
+      "id": "jev-desktop",
+      "name": "Jev Desktop",
+      "url": "https://github.com/yikangy873-gif/jev-desktop",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Bounded decision loop inside Computer Use; caller retains scope and verification.",
+      "aliases": []
+    },
+    {
+      "id": "jev-curate",
+      "name": "jev-curate",
+      "url": "https://github.com/AkashPriyadarshii/jev-curate",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Verbatim data curation/filtering; no generative rewrite.",
+      "aliases": []
+    },
+    {
+      "id": "jev-research-eval",
+      "name": "jev-research-eval",
+      "url": "https://github.com/jgridifier/jev-research-eval",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Reproducible browser research evaluation harness; corrected from jev-research-evalv.",
+      "aliases": [
+        "https://github.com/jgridifier/jev-research-evalv"
+      ]    },
+    {
+      "id": "ai-cli",
+      "name": "Vercel ai-cli",
+      "url": "https://github.com/vercel-labs/ai-cli",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Typed evaluate CLI plus human command surface; corrected from ai-cliv.",
+      "aliases": [
+        "https://github.com/vercel-labs/ai-cliv"
+      ]
+    },
+    {
+      "id": "smithers",
+      "name": "Smithers",
+      "url": "https://github.com/smithersai/smithers",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Codebase maintainer runtime with explicit flows and inspectable runs.",
+      "aliases": []
+    },
+    {
+      "id": "jev-stock",
+      "name": "jev_stock",
+      "url": "https://github.com/sosopop/jev_stock",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Structured market-state reports; probabilities explicitly not equated to win rate.",
+      "aliases": []
+    },
+    {
+      "id": "jev-trade",
+      "name": "Jev Trade",
+      "url": "https://github.com/aowang-ai/jev-trade",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Live/paper desk UX; tick->decision->order flow with dry-run first.",
+      "aliases": []
+    },
+    {
+      "id": "jev-belay",
+      "name": "jev-belay",
+      "url": "https://github.com/valentynkit/jev-belay",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Evidence gate before an agent can claim done.",
+      "aliases": []
+    },
+    {
+      "id": "jev-canvas",
+      "name": "jev-canvas",
+      "url": "https://github.com/gaborishka/jev-canvas",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Direct speech/pointing UX over many typed decisions; code owns thresholds/actions.",
+      "aliases": []
+    },
+    {
+      "id": "wakegate",
+      "name": "wakegate",
+      "url": "https://github.com/shitianfang/wakegate",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Cheap decision gate before waking an expensive model; fail-open on uncertainty/error.",
+      "aliases": []
+    },
+    {
+      "id": "jevocks",
+      "name": "Jevinik / jevocks",
+      "url": "https://github.com/unicodeveloper/jevocks",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "readme-reviewed",
+      "source": "user-current",
+      "note": "Human terminal with evidence quality/signals/timing instead of raw decision JSON.",
+      "aliases": []
+    },
+    {
+      "id": "jevs-fly",
+      "name": "Jev’s Fly",
+      "url": "https://github.com/webdevcody/jevs-fly",
+      "category": "jev-agent",
+      "kind": "repository",
+      "review": "source-inspected",
+      "source": "user-current",
+      "note": "Visible HUD maps typed decisions to actions; raw state is inspectable detail.",
+      "aliases": []
+    },
+    {
+      "id": "semanticspace",
+      "name": "Semantic Space",
+      "url": "https://semanticspace.dev/",
+      "category": "jev-ecosystem",
+      "kind": "website",
+      "review": "discussed",
+      "source": "user-current",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "madewithjev",
+      "name": "Made with Jev",
+      "url": "https://madewithjev.com/",
+      "category": "jev-ecosystem",
+      "kind": "website",
+      "review": "reviewed",
+      "source": "user-current",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "madewithjev-agents",
+      "name": "Made with Jev — Agents & Browsers",
+      "url": "https://madewithjev.com/categories/agents-and-browsers",
+      "category": "jev-ecosystem",
+      "kind": "website",
+      "review": "reviewed",
+      "source": "user-current",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "a0-plugins",
+      "name": "Agent Zero plugins / TypeSafe entry",
+      "url": "https://github.com/agent0ai/a0-plugins/tree/main/plugins/typesafe_ai",
+      "category": "jev-integration",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "a0-typesafe",
+      "name": "a0-typesafe-ai",
+      "url": "https://github.com/3clyp50/a0-typesafe-ai",
+      "category": "jev-integration",
+      "kind": "repository",
+      "review": "reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "typesafe-skills",
+      "name": "TypeSafe skills",
+      "url": "https://github.com/typesafe-ai/skills",
+      "category": "jev-integration",
+      "kind": "repository",
+      "review": "reference-only",
+      "source": "audit-derived",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lund-gillet",
+      "name": "Building a connectome of the insect brain’s navigational center",
+      "url": "https://www.lunduniversity.lu.se/publication/36d49300-14d1-4a52-a83d-4efea73dbc29",
+      "category": "bee-science",
+      "kind": "thesis",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "sayre-2021",
+      "name": "A projectome of the bumblebee central complex",
+      "url": "https://elifesciences.org/articles/68911",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "neuromorphic-nav",
+      "name": "Emulating insect brains for neuromorphic navigation",
+      "url": "https://arxiv.org/html/2401.00473v1",
+      "category": "bee-science",
+      "kind": "preprint",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "phys-bnn",
+      "name": "Phys.org biological neural networks topic",
+      "url": "https://phys.org/concepts/biological-neural-networks/",
+      "category": "bee-science",
+      "kind": "secondary",
+      "review": "reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "hong-pavlic",
+      "name": "CEUR insect-inspired random feature network",
+      "url": "https://ceur-ws.org/Vol-2986/paper10.pdf",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "mindstudio-emulation",
+      "name": "MindStudio brain emulation article",
+      "url": "https://www.mindstudio.ai/blog/what-is-brain-emulation-fruit-fly-eon-systems",
+      "category": "bee-science",
+      "kind": "secondary",
+      "review": "reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lochner-2024",
+      "name": "Frontiers insect navigation / reinforcement computations",
+      "url": "https://www.frontiersin.org/journals/computational-neuroscience/articles/10.3389/fncom.2024.1460006/full",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "menzel-2012",
+      "name": "Menzel 2012 bee cognition review",
+      "url": "https://www.bcp.fu-berlin.de/biologie/arbeitsgruppen/neurobiologie/ag_menzel/publications/Res/Me-Review-nature-Reviews-Neurosc-2012.pdf",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "eichler-rg",
+      "name": "Eichler et al. 2017 mushroom body — alternate copy",
+      "url": "https://www.researchgate.net/publication/346928381_The_complete_connectome_of_a_learning_and_memory_center_in_an_insect_brain",
+      "category": "insect-science",
+      "kind": "paper-copy",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "eichler-doi",
+      "name": "Eichler et al. 2017 Nature DOI",
+      "url": "https://doi.org/10.1038/nature23455",
+      "category": "insect-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "peng-chittka",
+      "name": "Peng & Chittka 2017 computational mushroom body",
+      "url": "https://doi.org/10.1016/j.cub.2016.10.054",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "stone-path-integration",
+      "name": "Stone et al. 2017 path integration",
+      "url": "https://doi.org/10.1016/j.cub.2017.08.052",
+      "category": "bee-science",
+      "kind": "paper",
+      "review": "research-reviewed",
+      "source": "earlier-session",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "venice-models",
+      "name": "Venice models",
+      "url": "https://docs.venice.ai/models/overview",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "venice-api",
+      "name": "Venice API spec",
+      "url": "https://docs.venice.ai/api-reference/api-spec",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "venice-decisions",
+      "name": "Venice Decisions guide",
+      "url": "https://docs.venice.ai/guides/features/decisions",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "venice-create",
+      "name": "Venice Decisions create",
+      "url": "https://docs.venice.ai/api-reference/endpoint/decisions/create",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "venice-systemone",
+      "name": "Venice System One endpoint",
+      "url": "https://docs.venice.ai/api-reference/endpoint/decisions/systemone",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lmstudio-openai",
+      "name": "LM Studio OpenAI compatibility",
+      "url": "https://lmstudio.ai/docs/developer/openai-compat",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lmstudio-rest",
+      "name": "LM Studio REST",
+      "url": "https://lmstudio.ai/docs/developer/rest",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lmstudio-headless",
+      "name": "LM Studio headless",
+      "url": "https://lmstudio.ai/docs/developer/core/headless",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "lmstudio-cli",
+      "name": "LM Studio server CLI",
+      "url": "https://lmstudio.ai/docs/cli/serve/server-start",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "mcp",
+      "name": "Model Context Protocol",
+      "url": "https://modelcontextprotocol.io/",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    },
+    {
+      "id": "mcp-python",
+      "name": "MCP Python SDK",
+      "url": "https://py.sdk.modelcontextprotocol.io/",
+      "category": "platform",
+      "kind": "documentation",
+      "review": "reviewed",
+      "source": "project",
+      "note": "",
+      "aliases": []
+    }
+  ]
+}

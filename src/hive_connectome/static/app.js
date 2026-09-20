@@ -1,316 +1,36 @@
-const j=x=>JSON.stringify(x,null,2);
-let workers=[], templates=[];
-
-async function api(path,opts={}){
-  const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
-  const body=await r.json().catch(()=>({error:r.statusText}));
-  if(!r.ok) throw new Error(body.detail||body.error||j(body));
-  return body;
-}
-const $=id=>document.getElementById(id);
-const csv=x=>x.split(',').map(s=>s.trim()).filter(Boolean);
-const bool=id=>$(id).checked;
-const num=id=>Number($(id).value||0);
-
-function selectedWorker(){
-  return workers.find(w=>w.id===$('workerSelect').value);
-}
-
+const $=id=>document.getElementById(id); const j=x=>JSON.stringify(x,null,2); const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let workers=[], inputMode='text', lastResult=null;
+const TASKS={
+ understand:{title:'Understand new information',worker:'scout',jev:true,llm:true,help:'Default. Use this for a note, event, API result, or observation. Jev makes bounded judgments; an LLM is available for open-ended interpretation when the worker decides it is useful.',example:'Pool TVL fell 18% in the last hour while volume doubled. Price is mostly unchanged.'},
+ sort:{title:'Sort / route an event',worker:'scout',jev:true,llm:false,help:'Fast keep / inspect / escalate / ignore classification. No prose model.',example:'A scheduled API poll returned the same value as the previous six polls.'},
+ explain:{title:'Explain something with local AI',worker:'scout',jev:false,llm:true,help:'Use LM Studio directly for open-ended explanation so you can compare the LLM without Jev.',example:'Liquidity moved from pool A into pool B after a fee change. Explain what changed and what I should investigate.'},
+ remember:{title:'Decide what is worth remembering',worker:'keeper',jev:true,llm:true,help:'Use this for durable state. The Keeper worker asks whether the input represents a real change worth recording.',example:'The project permanently changed its default API endpoint from provider A to provider B.'},
+ audit:{title:'Check a claim against evidence',worker:'auditor',jev:true,llm:true,help:'Use this to separate supported claims, contradictions, and missing evidence.',example:'Claim: the deployment is healthy. Evidence: the API health check passed, but the database migration check was never run.'},
+ browser:{title:'Interpret browser evidence',worker:'browser',jev:true,llm:true,help:'Use this after a browser/tool has supplied DOM, accessibility, OCR, or page evidence. HIVE does not browse by itself yet.',example:'Page title: Releases. Visible text: v2.4.1 Latest, published today; v2.4.0 published last week.'},
+ brain:{title:'Test the neural state layer',worker:'scout',jev:false,llm:false,help:'Research baseline only. Runs the current synthetic recurrent stages with no Jev and no LLM. This is not a biological connectome run.',example:'Repeated signal A: 1, 1, 1, 1; then signal A changes to 5.'}
+};
+async function api(path,opts={}){const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});const b=await r.json().catch(()=>({error:r.statusText}));if(!r.ok)throw new Error(b.detail||b.error||j(b));return b;}
+function task(){return TASKS[$('taskSelect').value]||TASKS.understand}
 async function boot(){
-  await loadHealth();
-  const t=await api('/api/experiment-templates');templates=t.templates||[];
-  $('templateSelect').innerHTML=templates.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
-  await refreshWorkers();
-  await loadConnectomes();
+ $('taskSelect').innerHTML=Object.entries(TASKS).map(([k,v])=>`<option value="${k}">${v.title}</option>`).join(''); selectTask();
+ await loadHealth(); workers=await api('/api/workers'); $('workerSelect').innerHTML=workers.map(w=>`<option value="${w.id}">${w.name} — ${esc(w.description||w.role)}</option>`).join(''); loadWorkerForm();
+ await Promise.all([loadConnectomes(),loadSources(),loadEventsHuman()]);
 }
-
-async function loadHealth(){
-  try{
-    await api('/api/health');
-    $('health').textContent='healthy';$('health').className='pill ok';
-  }catch(e){
-    $('health').textContent='offline';$('health').className='pill bad';
-  }
-}
-
-async function refreshWorkers(selectId=null){
-  const old=selectId||$('workerSelect').value;
-  workers=await api('/api/workers');
-  $('workerSelect').innerHTML=workers.map(w=>`<option value="${w.id}">${w.name} · ${w.id}</option>`).join('');
-  if(old && workers.some(w=>w.id===old)) {
-    $('workerSelect').value=old;
-  } else if(workers.length) {
-    $('workerSelect').value=workers[0].id;
-  }
-  loadWorkerForm();
-}
-
-function renderDataEnvironment(){
-  const mode=$('dataMode').value;
-  for(const id of ['envSources','envBrowser','envFiles','envWorkers']) $(id).style.display='none';
-  if(mode==='source_ids') $('envSources').style.display='block';
-  if(mode==='browser_dom'||mode==='browser_visual') $('envBrowser').style.display='block';
-  if(mode==='file_drop') $('envFiles').style.display='block';
-  if(mode==='worker_output') $('envWorkers').style.display='block';
-
-  const labels={
-    manual:'Experiment input (JSON)',
-    source_ids:'Optional eval/sample input (JSON); environment run uses configured sources',
-    browser_dom:'Optional eval/sample DOM evidence (JSON); environment run awaits browser adapter',
-    browser_visual:'Optional eval/sample OCR/visual evidence (JSON); environment run awaits browser adapter',
-    file_drop:'Optional eval/sample file evidence (JSON); environment run reads inbox',
-    simulation:'Simulation event (JSON)',
-    worker_output:'Optional eval/sample upstream worker output (JSON)'
-  };
-  $('inputLabel').childNodes[0].nodeValue=(labels[mode]||'Experiment input (JSON)')+' ';
-}
-
-function loadWorkerForm(){
-  const w=selectedWorker();if(!w)return;
-  $('workerIdLabel').textContent=`worker id: ${w.id}`;
-  $('workerName').value=w.name;
-  $('workerRole').value=w.role;
-  $('workerDescription').value=w.description||'';
-
-  $('jevEnabled').checked=w.jev.enabled;
-  $('llmEnabled').checked=w.llm.enabled;
-  $('runJev').checked=w.jev.enabled;
-  $('runLlm').checked=w.llm.enabled;
-
-  $('experimentKind').value=w.experiment.kind;
-  $('experimentObjective').value=w.experiment.objective;
-  $('taskPrompt').value=w.experiment.task_prompt;
-  $('expectedOutput').value=w.experiment.expected_output;
-  $('evalMetric').value=w.experiment.eval_metric;
-  $('experimentNotes').value=w.experiment.notes||'';
-
-  $('dataMode').value=w.data_environment.mode;
-  $('sourceIds').value=(w.data_environment.source_ids||[]).join(', ');
-  $('browserUrl').value=w.data_environment.url||'';
-  $('filePath').value=w.data_environment.file_path||'';
-  $('pollInterval').value=w.data_environment.poll_interval_seconds;
-  $('alwaysOn').checked=w.data_environment.always_on;
-  $('browserExtract').value=w.data_environment.browser_extract;
-  $('ocrEnabled').checked=w.data_environment.ocr_enabled;
-  $('upstreamWorkers').value=(w.data_environment.upstream_workers||[]).join(', ');
-  renderDataEnvironment();
-
-  $('larvaEngine').value=w.larva.engine;
-  $('larvaSubstrate').value=w.larva.substrate;
-  $('larvaSize').value=w.larva.state_size;
-  $('larvaConfig').value=j(w.larva.config||{});
-  $('beeEngine').value=w.bee.engine;
-  $('beeSubstrate').value=w.bee.substrate;
-  $('beeSize').value=w.bee.state_size;
-  $('beeConfig').value=j(w.bee.config||{});
-
-  $('jevModel').value=w.jev.model;
-  $('jevThreshold').value=w.jev.llm_gate_threshold;
-  $('jevFeedback').checked=w.jev.feedback_to_brain;
-  $('jevQuestions').value=j(w.jev.questions||{});
-
-  $('llmProvider').value=w.llm.provider;
-  $('llmModel').value=w.llm.model||'';
-  $('llmActivation').value=w.llm.activation;
-  $('llmTemperature').value=w.llm.temperature;
-  $('verifyWithJev').checked=w.llm.verify_with_jev;
-  $('llmPrompt').value=w.llm.prompt||'';
-
-  $('runtimeEnabled').checked=Boolean(w.runtime.enabled);
-  $('runtimeMode').value=w.runtime.mode;
-  $('runtimeInterval').value=w.runtime.interval_seconds;
-  $('runtimeCron').value=w.runtime.cron||'';
-  $('persistBrain').checked=w.runtime.persist_brain_state;
-  $('maxEvents').value=w.runtime.max_events_per_tick;
-
-  $('saveEvent').checked=w.outputs.save_event;
-  $('saveRun').checked=w.outputs.save_run;
-  $('writeLabels').checked=w.outputs.write_labels;
-  $('emitHivemind').checked=w.outputs.emit_to_hivemind;
-  $('nextWorkers').value=(w.outputs.next_workers||[]).join(', ');
-}
-
-function formToWorker(){
-  const old=selectedWorker();
-  return {
-    id:old.id,
-    name:$('workerName').value,
-    description:$('workerDescription').value,
-    role:$('workerRole').value,
-    experiment:{
-      kind:$('experimentKind').value,
-      objective:$('experimentObjective').value,
-      task_prompt:$('taskPrompt').value,
-      expected_output:$('expectedOutput').value,
-      eval_metric:$('evalMetric').value,
-      notes:$('experimentNotes').value
-    },
-    data_environment:{
-      mode:$('dataMode').value,
-      source_ids:csv($('sourceIds').value),
-      url:$('browserUrl').value||null,
-      file_path:$('filePath').value||null,
-      poll_interval_seconds:num('pollInterval')||60,
-      always_on:bool('alwaysOn'),
-      browser_extract:$('browserExtract').value,
-      ocr_enabled:bool('ocrEnabled'),
-      upstream_workers:csv($('upstreamWorkers').value)
-    },
-    larva:{
-      engine:$('larvaEngine').value,
-      substrate:$('larvaSubstrate').value,
-      state_size:num('larvaSize'),
-      config:JSON.parse($('larvaConfig').value||'{}')
-    },
-    bee:{
-      engine:$('beeEngine').value,
-      substrate:$('beeSubstrate').value,
-      state_size:num('beeSize'),
-      config:JSON.parse($('beeConfig').value||'{}')
-    },
-    jev:{
-      enabled:bool('jevEnabled'),
-      provider:'venice',
-      model:$('jevModel').value,
-      questions:JSON.parse($('jevQuestions').value||'{}'),
-      llm_gate_threshold:Number($('jevThreshold').value),
-      feedback_to_brain:bool('jevFeedback')
-    },
-    llm:{
-      enabled:bool('llmEnabled'),
-      provider:$('llmProvider').value,
-      model:$('llmModel').value||null,
-      activation:$('llmActivation').value,
-      prompt:$('llmPrompt').value,
-      temperature:Number($('llmTemperature').value),
-      verify_with_jev:bool('verifyWithJev')
-    },
-    runtime:{
-      enabled:bool('runtimeEnabled'),
-      mode:$('runtimeMode').value,
-      interval_seconds:num('runtimeInterval')||60,
-      cron:$('runtimeCron').value||null,
-      persist_brain_state:bool('persistBrain'),
-      max_events_per_tick:num('maxEvents')||25
-    },
-    outputs:{
-      save_event:bool('saveEvent'),
-      save_run:bool('saveRun'),
-      write_labels:bool('writeLabels'),
-      emit_to_hivemind:bool('emitHivemind'),
-      next_workers:csv($('nextWorkers').value)
-    }
-  };
-}
-
-async function saveWorker(){
-  try{
-    const w=formToWorker();
-    await api('/api/workers/'+encodeURIComponent(w.id),{method:'PUT',body:JSON.stringify(w)});
-    await refreshWorkers(w.id);
-    alert('worker saved');
-  }catch(e){alert(e.message)}
-}
-
-async function createWorker(){
-  const id=$('newWorkerId').value.trim();
-  if(!id)return alert('enter worker id');
-  const q=new URLSearchParams({worker_id:id});
-  if($('newWorkerName').value.trim())q.set('name',$('newWorkerName').value.trim());
-  try{
-    const w=await api('/api/workers/from-template/'+encodeURIComponent($('templateSelect').value)+'?'+q.toString(),{method:'POST'});
-    await refreshWorkers(w.id);
-  }catch(e){alert(e.message)}
-}
-
-async function cloneWorker(){
-  const old=selectedWorker();const id=$('cloneWorkerId').value.trim();
-  if(!old||!id)return alert('select a worker and enter new id');
-  try{
-    const w=await api(`/api/workers/${encodeURIComponent(old.id)}/clone?new_id=${encodeURIComponent(id)}`,{method:'POST'});
-    await refreshWorkers(w.id);
-  }catch(e){alert(e.message)}
-}
-
-async function deleteWorker(){
-  const w=selectedWorker();if(!w)return;
-  if(!confirm(`Delete ${w.id}?`))return;
-  try{await api('/api/workers/'+encodeURIComponent(w.id),{method:'DELETE'});await refreshWorkers()}
-  catch(e){alert(e.message)}
-}
-
-async function runWorker(){
-  const w=selectedWorker();if(!w)return;
-  $('runResult').textContent='running...';
-  try{
-    const payload=JSON.parse($('runPayload').value);
-    const x=await api('/api/pipeline/run',{method:'POST',body:JSON.stringify({
-      worker_id:w.id,
-      jev_enabled:bool('runJev'),
-      llm_enabled:bool('runLlm'),
-      mode:'auto',
-      event:{source_id:'gui',kind:'experiment',payload}
-    })});
-    $('runResult').textContent=j(x);
-  }catch(e){$('runResult').textContent=e.message}
-}
-
-async function resetWorker(){
-  const w=selectedWorker();if(!w)return;
-  try{await api('/api/pipeline/reset?worker_id='+encodeURIComponent(w.id),{method:'POST'});$('runResult').textContent='paired neural state reset'}
-  catch(e){$('runResult').textContent=e.message}
-}
-
-async function runEnvironment(){
-  const w=selectedWorker();if(!w)return;
-  $('environmentResult').textContent='running environment...';
-  try{
-    $('environmentResult').textContent=j(await api(`/api/workers/${encodeURIComponent(w.id)}/run-environment`,{method:'POST'}));
-  }catch(e){$('environmentResult').textContent=e.message}
-}
-
-async function runEval(){
-  const w=selectedWorker();if(!w)return;
-  $('evalResult').textContent='running same worker across four toggle states...';
-  try{
-    const payload=JSON.parse($('runPayload').value);
-    const expected=$('expectedRoute').value||null;
-    const x=await api('/api/evals/run',{method:'POST',body:JSON.stringify({
-      worker_id:w.id,
-      cases:[{id:'gui-eval',event:{source_id:'eval',kind:'eval',payload},expected_route:expected}]
-    })});
-    $('evalResult').textContent=j(x);
-  }catch(e){$('evalResult').textContent=e.message}
-}
-
-async function loadProviders(){
-  $('providers').textContent='testing...';
-  try{$('providers').textContent=j(await api('/api/providers/status'))}
-  catch(e){$('providers').textContent=e.message}
-}
-
-async function loadConnectomes(){
-  try{
-    const packs=await api('/api/connectomes');
-    $('connectomes').innerHTML=packs.map(p=>`<div class="pack">
-      <b>${p.name}</b>
-      <div class="meta">${p.installed?'installed + verified':(p.installable?'available':'research reference')}</div>
-      ${p.warning?`<div class="warn">${p.warning}</div>`:''}
-      ${p.installable&&!p.installed?`<button class="secondary" onclick="installConnectome('${p.id}', ${JSON.stringify(Boolean(p.warning))})">Install</button>`:''}
-    </div>`).join('');
-  }catch(e){$('connectomes').textContent=e.message}
-}
-
-async function installConnectome(id,isLarge){
-  if(!confirm(`Install ${id}?${isLarge?' This pack is large and can exceed 1 GB.':''}`))return;
-  try{
-    const result=await api(`/api/connectomes/${encodeURIComponent(id)}/install?confirm=${isLarge?'true':'false'}`,{method:'POST'});
-    $('connectomes').insertAdjacentHTML('afterbegin',`<div class="meta">${j(result)}</div>`);
-    setTimeout(loadConnectomes,1200);
-  }catch(e){alert(e.message)}
-}
-
-boot().catch(e=>{
-  $('health').textContent='startup error';$('health').className='pill bad';
-  console.error(e);
-});
+function selectTask(){const t=task();$('taskHelp').innerHTML=`<b>${esc(t.title)}</b><br>${esc(t.help)}<br><span class="meta">Uses worker: ${esc(t.worker)} · Jev ${t.jev?'on':'off'} · LLM ${t.llm?'on':'off'}</span>`;}
+function loadExample(){$('runInput').value=task().example;}
+function setInputMode(mode){inputMode=mode;$('textModeBtn').classList.toggle('active',mode==='text');$('jsonModeBtn').classList.toggle('active',mode==='json');$('runInput').placeholder=mode==='text'?'Paste a note, event, claim, API result, or observation here…':'Paste a JSON object or array here…';}
+async function loadHealth(){try{const h=await api('/api/health');$('health').textContent='running';$('health').className='pill ok';const n=h.neural_runtime||{};$('brainRuntime').textContent=n.backend||'synthetic-deterministic-v1';$('realBrainStatus').textContent=n.biological_connectome_executing?'YES':'NO — synthetic test state';$('realBrainStatus').className=n.biological_connectome_executing?'good':'warn-text';$('jevStatus').textContent=h.venice_configured?'configured':'not configured';$('llmStatus').textContent=h.lmstudio_model||'not selected / provider check needed';}catch(e){$('health').textContent='offline';$('health').className='pill bad';}}
+function makePayload(){const raw=$('runInput').value.trim();if(!raw)throw new Error('Enter something for HIVE to work on.'); if(inputMode==='json') return JSON.parse(raw); const t=task(); return {text:raw,job:t.title};}
+function pct(v){const n=Number(v);return Number.isFinite(n)?`${Math.round(n*100)}%`:'—'}
+function humanResult(r,t){const a=r.decisions?.answers||{};const route=a.route?.choice||'—';const meaningful=a.meaningful_signal?.noul;const novelty=a.novelty?.score;const need=a.llm_needed?.noul;const trace=[];trace.push(`Recurrent stage A ran (${r.worm?.engine||'unknown'}).`);trace.push(`Recurrent stage B ran (${r.fly?.engine||'unknown'}).`);trace.push(r.decisions?.provider==='venice'?'Jev made the typed decision.':'Jev did not make this decision; fixed brain readout was used.');trace.push(r.llm?.text?'An LLM produced an interpretation.':'No LLM interpretation was produced.');trace.push('Biological connectome executed: NO.');const unresolved=(r.unresolved||[]).map(x=>`<li>${esc(x)}</li>`).join('');return `<div class="eyebrow">RESULT</div><h2>${esc(t.title)}</h2><div class="result-grid"><div class="metric"><span>Route</span><strong>${esc(route)}</strong></div><div class="metric"><span>Meaningful</span><strong>${pct(meaningful)}</strong></div><div class="metric"><span>LLM needed</span><strong>${pct(need)}</strong></div></div><p><b>Novelty score:</b> ${esc(novelty??'—')}</p>${r.llm?.text?`<h3>Interpretation</h3><div class="interpretation">${esc(r.llm.text)}</div>`:'<p class="meta">No prose model ran for this result. That is normal for Jev-only or baseline runs.</p>'}<h3>What HIVE actually did</h3><ol class="trace">${trace.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>${unresolved?`<h3>Unresolved</h3><ul>${unresolved}</ul>`:''}`;}
+async function runTask(){const t=task();$('runStatus').textContent='running…';try{const payload=makePayload();const r=await api('/api/pipeline/run',{method:'POST',body:JSON.stringify({worker_id:t.worker,jev_enabled:t.jev,llm_enabled:t.llm,mode:'auto',event:{source_id:'gui',kind:'human_job',payload}})});lastResult=r;$('humanResult').className='result-shell';$('humanResult').innerHTML=humanResult(r,t);$('rawRun').textContent=j(r);$('runStatus').textContent='complete';await loadEventsHuman();}catch(e){$('humanResult').className='result-shell';$('humanResult').innerHTML=`<div class="bad"><b>Run failed:</b> ${esc(e.message)}</div>`;$('runStatus').textContent='failed';}}
+async function loadConnectomes(){try{const packs=await api('/api/connectomes');$('connectomes').innerHTML=packs.map(p=>`<div class="pack"><div class="pack-row"><div><b>${esc(p.name)}</b><div class="meta">${p.installed?'DATA INSTALLED + VERIFIED':(p.installable?'NOT DOWNLOADED':'reference only')} · executing: NO</div>${p.warning?`<div class="warn-text meta">${esc(p.warning)}</div>`:''}</div>${p.installable&&!p.installed?`<button class="secondary" onclick="installPack('${p.id}',${Boolean(p.warning)})">Download + verify data</button>`:''}</div></div>`).join('');}catch(e){$('connectomes').innerHTML=`<div class="bad">${esc(e.message)}</div>`;}}
+async function installPack(id,large){if(!confirm(`Download and verify ${id}?${large?' This is a large dataset.':''}\n\nThis installs data only; HIVE still will not execute the biological connectome.`))return;try{await api(`/api/connectomes/${encodeURIComponent(id)}/install?confirm=${large?'true':'false'}`,{method:'POST'});const start=Date.now();while(Date.now()-start<120000){const x=await api(`/api/connectomes/${encodeURIComponent(id)}/job`);if(x.status==='complete'||x.status==='error'){alert(x.status==='complete'?'Download verified. Data is installed, but not executable yet.':`Install failed: ${x.error}`);break;}await new Promise(r=>setTimeout(r,1200));}await loadConnectomes();}catch(e){alert(e.message)}}
+async function loadSources(){try{const s=await api('/api/sources');$('sources').innerHTML=s.length?s.map(x=>`<div class="event"><b>${esc(x.name||x.id)}</b><div class="meta">${esc(x.kind)} · ${x.enabled?'enabled':'disabled'} · every ${x.interval_seconds}s</div></div>`).join(''):'<div class="meta">No sources configured.</div>';}catch(e){$('sources').textContent=e.message}}
+async function loadEventsHuman(){try{const e=await api('/api/events?limit=8');$('eventsHuman').innerHTML=e.length?e.map(x=>`<div class="event"><b>${esc(x.kind)}</b> <span class="meta">${esc(x.source_id)} · ${esc(x.timestamp)}</span><div>${esc(typeof x.payload==='string'?x.payload:JSON.stringify(x.payload)).slice(0,220)}</div></div>`).join(''):'<div class="meta">No events yet.</div>';}catch(e){$('eventsHuman').textContent=e.message}}
+function selectedWorker(){return workers.find(w=>w.id===$('workerSelect').value)}
+function loadWorkerForm(){const w=selectedWorker();if(!w)return;$('workerRole').value=w.role;$('workerDescription').textContent=w.description||'';$('runJev').checked=w.jev.enabled;$('runLlm').checked=w.llm.enabled;$('taskPrompt').value=w.experiment.task_prompt;$('jevQuestions').value=j(w.jev.questions||{});}
+async function saveAdvancedWorker(){const w=selectedWorker();if(!w)return;try{w.experiment.task_prompt=$('taskPrompt').value;w.jev.questions=JSON.parse($('jevQuestions').value||'{}');w.jev.enabled=$('runJev').checked;w.llm.enabled=$('runLlm').checked;const saved=await api(`/api/workers/${encodeURIComponent(w.id)}`,{method:'PUT',body:JSON.stringify(w)});const i=workers.findIndex(x=>x.id===w.id);workers[i]=saved;alert('Worker saved.');}catch(e){alert(e.message)}}
+async function runMatrix(){const w=selectedWorker();if(!w)return;try{const payload=makePayload();const x=await api('/api/evals/run',{method:'POST',body:JSON.stringify({worker_id:w.id,cases:[{id:'gui',event:{source_id:'eval',kind:'eval',payload}}]})});$('matrixHuman').innerHTML=Object.entries(x.summary||{}).map(([k,v])=>`<div class="event"><b>${esc(k.replaceAll('_',' '))}</b><div class="meta">latency ${Math.round(v.mean_latency_ms||0)} ms · Jev calls ${v.jev_calls} · LLM calls ${v.llm_calls} · failures ${v.failures}</div></div>`).join('');}catch(e){$('matrixHuman').innerHTML=`<div class="bad">${esc(e.message)}</div>`}}
+async function loadProviders(){try{$('providers').textContent=j(await api('/api/providers/status'));}catch(e){$('providers').textContent=e.message}}
+boot().catch(e=>{console.error(e);$('health').textContent='startup error';$('health').className='pill bad';});
