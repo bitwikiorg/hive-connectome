@@ -62,11 +62,13 @@ The setup script:
 5. builds the local Docker image;
 6. starts the `hive` and `hive-mcp` services;
 7. waits for the HIVE health endpoint;
-8. automatically downloads and verifies the Cook runtime pack and the small MaleCNS runtime subgraph;
-9. reports that full MaleCNS is required for the primary experiment but full-graph execution is still blocked;
-10. reports control-runtime readiness separately from primary-experiment readiness;
-11. checks whether Venice and LM Studio are reachable;
-12. opens the GUI.
+8. downloads and verifies the full corrected Cook pack;
+9. downloads and verifies the required ~1.1 GB full MaleCNS v1.0 pack;
+10. installs the reduced MaleCNS locomotor graph separately as a control;
+11. compiles and executes one `primary-full` Cook → full MaleCNS smoke event with JEV/LLM disabled;
+12. reports primary readiness from execution receipts;
+13. checks whether Venice and LM Studio are reachable;
+14. opens the GUI.
 
 Secrets are written to `.secrets/`, which is excluded from Git.
 
@@ -109,8 +111,8 @@ http://127.0.0.1:8090/mcp
 On first boot, expect:
 
 - several editable example workers;
-- the corrected Cook connectome and the 1,045-neuron MaleCNS runtime subgraph installed + verified;
-- the current development/control Larva→Bee worker path using those measured topologies;
+- the corrected Cook connectome, full MaleCNS v1.0 pack, and reduced MaleCNS control pack installed + verified;
+- a `primary-full` Core for full Cook → full MaleCNS plus separate control Cores;
 - JEV available when Venice is configured and reachable; a requested JEV call fails visibly rather than silently falling back;
 - LLM calls unavailable until an LM Studio or Venice chat model is configured for the worker;
 - browser DOM/OCR and worker-to-worker bus surfaces to remain visibly marked as unfinished where they are not executable yet.
@@ -216,7 +218,7 @@ The worker's data environment, prompts, Larva/Bee configuration, and expected ta
 
 ## 10. Connectome data
 
-The Cook pack and 1,045-neuron MaleCNS locomotor **control** pack are installed for development. They do not make the primary experiment ready. Full MaleCNS is required by the study contract; v0.6 does not auto-download it because the full-graph engine cannot yet execute it. The installer:
+The Cook pack, full MaleCNS pack, and 1,045-neuron MaleCNS locomotor **control** pack are installed by the v0.7 first-run script. Full MaleCNS is required by the study contract. The setup then executes a `primary-full` smoke event; only a valid full-graph execution receipt can satisfy the primary readiness gate. The installer:
 
 - uses pinned HTTPS URLs;
 - writes to a temporary `.part` file;
@@ -226,7 +228,7 @@ The Cook pack and 1,045-neuron MaleCNS locomotor **control** pack are installed 
 - records an installation receipt;
 - never executes downloaded connectome data.
 
-The full MaleCNS pack is roughly 1.1 GB and remains installable for data preparation. Installing it still does not satisfy primary readiness until the full-graph engine actually executes it.
+The full MaleCNS pack is roughly 1.1 GB. Installing it alone does not satisfy primary readiness; the full graph must actually execute and produce a matching receipt.
 
 ## 11. Put local test data into HIVE
 
