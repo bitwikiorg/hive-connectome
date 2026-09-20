@@ -59,6 +59,7 @@ class DecisionBundle(BaseModel):
     answers: dict[str, Any]
     confidence: float | None = None
     raw: dict[str, Any] = Field(default_factory=dict)
+    transport: dict[str, Any] = Field(default_factory=dict)
 
 
 class LLMResult(BaseModel):
@@ -66,6 +67,7 @@ class LLMResult(BaseModel):
     model: str | None = None
     text: str
     raw: dict[str, Any] = Field(default_factory=dict)
+    transport: dict[str, Any] = Field(default_factory=dict)
 
 
 class PipelineRequest(BaseModel):
@@ -80,8 +82,9 @@ class PipelineRequest(BaseModel):
 class PipelineResult(BaseModel):
     run_id: str = Field(default_factory=lambda: str(uuid4()))
     event: EventEnvelope
-    worm: NeuralObservation
-    fly: NeuralObservation
+    stages: dict[str, NeuralObservation] = Field(default_factory=dict)
+    worm: NeuralObservation | None = None
+    fly: NeuralObservation | None = None
     decisions: DecisionBundle
     llm: LLMResult | None = None
     verification: DecisionBundle | None = None
@@ -89,8 +92,6 @@ class PipelineResult(BaseModel):
     labels: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
     execution: dict[str, Any] = Field(default_factory=dict)
-
-
 
 
 class BrainStageSpec(BaseModel):
@@ -105,10 +106,20 @@ class BrainStageSpec(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
 
 
+class BridgeSpec(BaseModel):
+    id: str
+    source: str
+    target: str
+    engine: Literal["hash_projection_v1", "identity_payload_v1"] = "hash_projection_v1"
+    enabled: bool = True
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
 class BeeUnitSpec(BaseModel):
     id: str
     role: str
     brain_chain: list[BrainStageSpec]
+    bridges: list[BridgeSpec] = Field(default_factory=list)
     jev_head: list[str] = Field(default_factory=list)
     llm_policy: Literal["never", "rare", "escalate-on-uncertainty", "escalate-on-semantic-merge", "always"] = "escalate-on-uncertainty"
     tools: list[str] = Field(default_factory=list)
@@ -121,6 +132,14 @@ class HivemindSpec(BaseModel):
     bus: str = "waggle"
     bee_units: list[BeeUnitSpec]
     default_chain: list[str] = Field(default_factory=list)
+
+
+class HiveRunRequest(BaseModel):
+    core_ids: list[str] = Field(min_length=1)
+    event: EventEnvelope
+    mode: Literal["auto", "offline", "live"] = "auto"
+    jev_enabled: bool | None = None
+    llm_enabled: bool | None = None
 
 
 class DataSourceSpec(BaseModel):
