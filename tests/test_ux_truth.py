@@ -4,10 +4,11 @@ from hive_connectome.runtime_status import neural_runtime_status
 
 def test_runtime_status_static_helper_defers_to_live_health():
     runtime = neural_runtime_status()
-    assert runtime["backend"] == "connectome-runtime-v0.6-state-reset"
+    assert runtime["backend"] == "connectome-runtime-v0.7-core-graph"
     assert runtime["primary_experiment_ready"] is False
     assert runtime["real_connectome_runtime_ready"] is False
     assert runtime["study_mode"] == "CONTROL_ONLY"
+    assert runtime["core_graph_runtime"] is True
     assert "biological_connectome_executing" not in runtime
 
 
