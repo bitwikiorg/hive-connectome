@@ -80,6 +80,7 @@ function Install-HiveConnectomePack([string]$PackId,[bool]$ConfirmLarge=$false){
     throw "Timed out installing connectome pack: $PackId"
 }
 
+Write-Host "Full MaleCNS is REQUIRED for the primary experiment, not optional."
 Write-Host "Installing required primary substrates..."
 Install-HiveConnectomePack "worm-cook-2020"
 Install-HiveConnectomePack "fly-malecns-v1" $true
