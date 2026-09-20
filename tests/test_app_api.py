@@ -25,7 +25,8 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
 
     root = client.get("/")
     assert root.status_code == 200
-    assert "HIVE EXPERIMENT LAB" in root.text\n    assert "See exactly what happened" in root.text
+    assert "HIVE EXPERIMENT LAB" in root.text
+    assert "See exactly what happened" in root.text
 
     templates = client.get("/api/experiment-templates").json()["templates"]
     assert {x["id"] for x in templates} >= {"manual_classifier", "browser_dom_reader", "stream_watch"}
