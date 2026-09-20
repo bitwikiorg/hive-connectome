@@ -11,12 +11,12 @@ async def test_venice_payload_and_response():
         return httpx.Response(200,json={"model":"jev-latest","answers":{"x":{"type":"noul","noul":0.9}},"usage":{}})
     v=VeniceJev("https://example.test","k",transport=httpx.MockTransport(handler))
     out=await v.decide({"a":1},{"x":JevQuestion(type=DecisionType.NOUL,instructions="x?")})
-    assert out.answers["x"]["noul"]==0.9
+    assert out.answers["x"]["noul"]==0.9\n    assert out.transport["provider"]=="venice"\n    assert out.transport["capability"]=="decisions"\n    assert out.transport["http_status"]==200\n    assert out.transport["request_hash"] and out.transport["response_hash"]
 
 @pytest.mark.asyncio
 async def test_lmstudio_chat():
     lm=LMStudio("http://lm.test/v1",transport=httpx.MockTransport(lambda req:httpx.Response(200,json={"choices":[{"message":{"content":"ok"}}]})))
-    assert (await lm.chat("model","task",{"x":1})).text=="ok"
+    out=await lm.chat("model","task",{"x":1})\n    assert out.text=="ok"\n    assert out.transport["provider"]=="lmstudio" and out.transport["http_status"]==200
 
 @pytest.mark.asyncio
 async def test_lmstudio_temperature_auth_and_models():
@@ -36,4 +36,4 @@ async def test_venice_chat_completions():
         return httpx.Response(200,json={"choices":[{"message":{"content":"ok-chat"}}]})
     chat=VeniceChat("https://api.venice.test/api/v1","vk",transport=httpx.MockTransport(handler))
     out=await chat.chat("chat-model","task",{"x":1},temperature=0.4)
-    assert out.provider=="venice" and out.text=="ok-chat"
+    assert out.provider=="venice" and out.text=="ok-chat"\n    assert out.transport["capability"]=="chat" and out.transport["http_status"]==200
