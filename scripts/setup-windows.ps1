@@ -70,7 +70,8 @@ function Install-HiveConnectomePack([string]$PackId,[bool]$ConfirmLarge=$false){
     if($pack.installed){Write-Host "  already installed + verified";return}
     $confirm=if($ConfirmLarge){"true"}else{"false"}
     Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8088/api/connectomes/$PackId/install?confirm=$confirm" -TimeoutSec 30|Out-Null
-    for($i=0;$i -lt 900;$i++){
+    $maxPolls=if($ConfirmLarge){7200}else{900}
+    for($i=0;$i -lt $maxPolls;$i++){
         Start-Sleep -Seconds 1
         $job=Invoke-RestMethod -Uri "http://127.0.0.1:8088/api/connectomes/$PackId/job" -TimeoutSec 10
         if($job.status -eq "complete"){Write-Host "  installed + verified";return}
