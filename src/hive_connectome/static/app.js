@@ -235,8 +235,7 @@ async function loadProviders(){
    'Raw diagnostics:',
    j(x)
   ];
-  $('providers').textContent=lines.join('
-');
+  $('providers').textContent=lines.join('\\n');
  }catch(e){$('providers').textContent=e.message}
 }
 boot().catch(e=>{console.error(e);$('health').textContent='startup error';$('health').className='pill bad'});
