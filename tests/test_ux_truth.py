@@ -20,7 +20,7 @@ def test_home_page_is_human_first_not_raw_json_first():
     assert "full MaleCNS" in text
     assert "Run development control" in text
     assert "Cook C. elegans" in text
-    assert "Advanced experiment controls" in text
+    assert "Core configuration" in text\n    assert "Experiment data" in text\n    assert "Hive chain" in text
 
 
 def test_front_door_has_plain_language_jobs_and_examples():
