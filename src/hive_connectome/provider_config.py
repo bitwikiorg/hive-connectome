@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,11 @@ class ProviderConfigUpdate(BaseModel):
     lmstudio_api_token: str | None = Field(default=None, repr=False)
     clear_lmstudio_api_token: bool = False
     default_llm_model: str | None = None
+
+
+class ProviderTestRequest(BaseModel):
+    capability: Literal["venice_jev", "venice_chat", "lmstudio_chat"]
+    model: str | None = None
 
 
 class ProviderRegistry:
