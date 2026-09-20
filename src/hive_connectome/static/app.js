@@ -128,7 +128,7 @@ function loadWorkerForm(){
  $('workerRole').value=w.role; $('workerDescription').textContent=w.description||'';
  $('runJev').checked=w.jev.enabled; $('runLlm').checked=w.llm.enabled;
  $('jevModel').value=w.jev.model||'jev-latest'; $('llmProvider').value=w.llm.provider||'lmstudio'; $('llmModel').value=w.llm.model||''; $('llmActivation').value=w.llm.activation||'jev_gate';
- $('taskPrompt').value=w.experiment.task_prompt; $('jevQuestions').value=j(w.jev.questions||{});
+ $('recordingLevel').value=w.outputs?.recording_level||'trace';\n $('taskPrompt').value=w.experiment.task_prompt; $('jevQuestions').value=j(w.jev.questions||{});
  $('hiveChain').value=w.id;
  $('brainStages').innerHTML=(w.brain_chain||[]).map((s,i)=>`<div class="event"><label><input type="checkbox" ${s.enabled?'checked':''} onchange="toggleBrainStage(${i},this.checked)"> <b>${esc(s.id)}</b></label><div class="meta">${esc(s.kind)} · engine ${esc(s.engine)} · input from ${esc((s.input_from||[]).join(', ')||'event')} · pack ${esc(s.connectome_pack||s.config?.pack_id||'none')}</div></div>`).join('')||'<div class="meta">No neural stages configured. This Core can still use Jev/LLM.</div>';
  $('bridges').innerHTML=(w.bridges||[]).map((b,i)=>`<div class="event"><b>${esc(b.source)} → ${esc(b.target)}</b><div class="formgrid"><label>Bridge engine<select onchange="setBridgeEngine(${i},this.value)"><option value="state_projection_v1" ${b.engine==='state_projection_v1'?'selected':''}>state projection</option><option value="hash_projection_v1" ${b.engine==='hash_projection_v1'?'selected':''}>hash projection control</option><option value="identity_payload_v1" ${b.engine==='identity_payload_v1'?'selected':''}>identity payload</option></select></label><label>Config<input value="${esc(JSON.stringify(b.config||{}))}" readonly></label></div></div>`).join('')||'<div class="meta">No inter-stage bridges.</div>';
@@ -140,7 +140,7 @@ async function saveAdvancedWorker(){
   w.experiment.task_prompt=$('taskPrompt').value;
   w.jev.questions=JSON.parse($('jevQuestions').value||'{}');
   w.jev.enabled=$('runJev').checked; w.jev.model=$('jevModel').value.trim()||'jev-latest';
-  w.llm.enabled=$('runLlm').checked; w.llm.provider=$('llmProvider').value; w.llm.model=$('llmModel').value.trim()||null; w.llm.activation=$('llmActivation').value;
+  w.llm.enabled=$('runLlm').checked; w.llm.provider=$('llmProvider').value; w.llm.model=$('llmModel').value.trim()||null; w.llm.activation=$('llmActivation').value;\n  w.outputs.recording_level=$('recordingLevel').value;
   const saved=await api(`/api/workers/${encodeURIComponent(w.id)}`,{method:'PUT',body:JSON.stringify(w)});
   const i=workers.findIndex(x=>x.id===w.id); workers[i]=saved; loadWorkerForm(); alert('Core saved.');
  }catch(e){alert(e.message)}
