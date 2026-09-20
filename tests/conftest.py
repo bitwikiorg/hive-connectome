@@ -7,12 +7,15 @@ from fastapi.testclient import TestClient
 
 from hive_connectome.app import create_app
 from hive_connectome.settings import Settings
+from connectome_fixtures import install_runtime_fixtures
 
 
 @pytest.fixture
 def test_settings(tmp_path: Path) -> Settings:
+    data_dir = tmp_path / "data"
+    install_runtime_fixtures(data_dir)
     return Settings(
-        data_dir=tmp_path / "data",
+        data_dir=data_dir,
         config_dir=Path(__file__).parents[1] / "config",
         venice_base_url="https://api.venice.ai/api/v1",
         venice_api_key=None,

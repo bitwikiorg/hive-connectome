@@ -63,8 +63,9 @@ Profiles are examples rather than identities of the project. The same worker/eve
 
 The external contracts stay stable while internals improve:
 
-- synthetic Larva → real small-connectome engine
-- synthetic Bee → real larger-connectome engine
+- default Larva: corrected Cook C. elegans measured topology + compact graded dynamics
+- default Bee: MaleCNS v1.0 1,045-neuron locomotor measured topology + LIF-style dynamics
+- synthetic/random/shuffled engines remain experimental controls
 - one state instance → multiple states sharing immutable topology
 - SQLite → larger event/state store
 - in-process routing → distributed event bus if needed

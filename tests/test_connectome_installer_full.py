@@ -104,3 +104,43 @@ async def test_install_rejects_reference_size_and_hash_mismatch(tmp_path):
     )
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         await bad.install("small")
+
+@pytest.mark.asyncio
+async def test_install_accepts_only_matching_pinned_git_blob(tmp_path):
+    content = b"male-cns-fixture"
+    git_blob = hashlib.sha1(f"blob {len(content)}\0".encode("ascii") + content).hexdigest()
+    manifest_data = {
+        "version": 1,
+        "packs": [{
+            "id": "git-pack",
+            "name": "Git pack",
+            "installable": True,
+            "files": [{
+                "name": "circuit.json",
+                "url": "https://example.test/circuit.json",
+                "bytes": len(content),
+                "git_blob_sha": git_blob,
+            }],
+        }],
+    }
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps(manifest_data), encoding="utf-8")
+    installer = ConnectomeInstaller(
+        manifest,
+        tmp_path / "data",
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, content=content)),
+    )
+    receipt = await installer.install("git-pack")
+    assert receipt["files"][0]["git_blob_sha"] == git_blob
+    assert installer.list_status()[0]["installed"] is True
+
+    manifest_data["packs"][0]["files"][0]["git_blob_sha"] = "0" * 40
+    bad_manifest = tmp_path / "bad-manifest.json"
+    bad_manifest.write_text(json.dumps(manifest_data), encoding="utf-8")
+    bad = ConnectomeInstaller(
+        bad_manifest,
+        tmp_path / "bad-data",
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, content=content)),
+    )
+    with pytest.raises(ValueError, match="Git blob hash mismatch"):
+        await bad.install("git-pack")

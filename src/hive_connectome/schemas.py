@@ -44,6 +44,7 @@ class NeuralObservation(BaseModel):
     step: int
     state_vector: list[float]
     metrics: dict[str, float]
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class JevQuestion(BaseModel):
@@ -87,6 +88,9 @@ class PipelineResult(BaseModel):
     modulation: float
     labels: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
+    execution: dict[str, Any] = Field(default_factory=dict)
+
+
 
 
 class BrainStageSpec(BaseModel):

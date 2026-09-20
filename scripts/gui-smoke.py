@@ -26,13 +26,13 @@ async def run(executable: str|None, screenshot: Path|None):
         await page.set_content(html,wait_until='domcontentloaded')
         fixtures={'workers':workers,'packs':packs}
         await page.evaluate("""fx=>{window.__fx=fx;window.fetch=async(url,opts={})=>{const u=new URL(url,'http://hive.local');const p=u.pathname;let body,status=200;
-          if(p==='/api/health')body={ok:true,version:'0.4.0',venice_configured:true,lmstudio_model:'tiny',neural_runtime:{backend:'synthetic-deterministic-v1',biological_connectome_executing:false}};
+          if(p==='/api/health')body={ok:true,version:'0.5.0',venice_configured:true,lmstudio_model:'tiny',neural_runtime:{backend:'cook2019_connectome -> malecns_locomotor',real_connectome_runtime_ready:true,larva:{installed:true},bee:{installed:true}}};
           else if(p==='/api/workers'&&(!opts.method||opts.method==='GET'))body=fx.workers;
           else if(p==='/api/connectomes')body=fx.packs;
           else if(p==='/api/sources')body=[{id:'local-inbox',name:'Local inbox',kind:'file_drop',enabled:true,interval_seconds:10}];
           else if(p==='/api/events')body=[];
           else if(p==='/api/providers/status')body={venice:{configured:true,ok:true},lmstudio:{ok:true,models:[{id:'tiny'}]}};
-          else if(p==='/api/pipeline/run')body={worm:{engine:'synthetic-deterministic-v1'},fly:{engine:'synthetic-deterministic-v1'},decisions:{provider:'venice',answers:{route:{choice:'store'},meaningful_signal:{noul:.82},novelty:{score:1.2},llm_needed:{noul:.3}}},llm:null,labels:['worker:scout'],unresolved:[]};
+          else if(p==='/api/pipeline/run')body={worm:{engine:'cook2019-corrected-connectome-graded-v1'},fly:{engine:'malecns-v1-locomotor-lif-v1'},decisions:{provider:'venice',model:'jev-latest',answers:{route:{choice:'store'},meaningful_signal:{noul:.82},novelty:{score:1.2},llm_needed:{noul:.3}}},llm:null,labels:['worker:scout'],unresolved:[],execution:{larva:{engine:'cook2019-corrected-connectome-graded-v1',real_connectome_topology:true},bee:{engine:'malecns-v1-locomotor-lif-v1',real_connectome_topology:true},jev:{requested:true,called:true,provider:'venice',model:'jev-latest'},llm:{requested:true,called:false,provider:null,model:null}}};
           else if(p==='/api/evals/run')body={summary:{jev_off_llm_off:{mean_latency_ms:1,jev_calls:0,llm_calls:0,failures:0},jev_on_llm_off:{mean_latency_ms:2,jev_calls:1,llm_calls:0,failures:0},jev_off_llm_on:{mean_latency_ms:3,jev_calls:0,llm_calls:1,failures:0},jev_on_llm_on:{mean_latency_ms:4,jev_calls:1,llm_calls:1,failures:0}}};
           else if(p.startsWith('/api/workers/')&&opts.method==='PUT')body=JSON.parse(opts.body);
           else if(p.includes('/install'))body={status:'queued'};
@@ -41,16 +41,16 @@ async def run(executable: str|None, screenshot: Path|None):
           return{ok:status<400,status,json:async()=>body,statusText:status===404?'Not Found':'OK'};};}""",fixtures)
         await page.add_script_tag(content=js)
         await page.wait_for_function("document.getElementById('taskSelect').options.length > 3 && document.getElementById('workerSelect').options.length > 0")
-        assert await page.locator('#realBrainStatus').text_content()=='NO — synthetic test state'
+        assert await page.locator('#realBrainStatus').text_content()=='READY — real topology'
         await page.click('button:has-text("Load example")')
         assert len(await page.locator('#runInput').input_value())>10
         await page.click('button:has-text("Run HIVE")')
         await page.wait_for_function("document.getElementById('humanResult').textContent.includes('What HIVE actually did')")
-        assert 'Biological connectome executed: NO' in await page.locator('#humanResult').text_content()
+        text=await page.locator('#humanResult').text_content(); assert 'Real connectome topology executed: YES' in text; assert 'Jev LIVE call succeeded' in text
         await page.locator('details.advanced').evaluate('(el)=>el.open=true')
         await page.click('button:has-text("Run comparison")')
         await page.wait_for_function("document.getElementById('matrixHuman').textContent.includes('jev on llm on')")
-        assert await page.locator('#connectomes').locator('button:has-text("Download + verify data")').count() >= 1
+        assert await page.locator('#connectomes').locator('button:has-text("Install verified pack")').count() >= 1
         assert not console_errors, console_errors
         assert not page_errors, page_errors
         if screenshot:

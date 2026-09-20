@@ -25,5 +25,6 @@ def test_gui_human_first_controls_and_api_targets_present():
         assert f'id="{control}"' in HTML
     for route in ["/api/health","/api/workers","/api/pipeline/run","/api/evals/run","/api/providers/status","/api/connectomes","/api/sources","/api/events"]:
         assert route in JS
-    assert "Download + verify data" in JS
-    assert "Biological connectome executed: NO" in JS
+    assert "Install verified pack" in JS
+    assert "Real connectome topology executed" in JS
+    assert "Jev LIVE call succeeded" in JS

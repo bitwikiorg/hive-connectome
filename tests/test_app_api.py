@@ -10,7 +10,8 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
     assert health.status_code == 200
     body = health.json()
     assert body["ok"] is True
-    assert body["version"] == "0.4.0"
+    assert body["version"] == "0.5.0"
+    assert body["neural_runtime"]["real_connectome_runtime_ready"] is True
     assert {"scout", "browser", "stream"}.issubset(body["workers"])
 
     root = client.get("/")
@@ -50,8 +51,9 @@ def test_create_from_template(client):
     assert body["data_environment"]["mode"] == "browser_dom"
     assert body["jev"]["enabled"] is True
     assert body["llm"]["enabled"] is True
-    assert body["larva"]["substrate"] == "c_elegans"
-    assert body["bee"]["substrate"] == "drosophila"
+    assert body["larva"]["engine"] == "cook2019_connectome"
+    assert body["bee"]["engine"] == "malecns_locomotor"
+    assert body["bee"]["substrate"] == "drosophila_malecns_v1_locomotor"
     assert client.post("/api/workers/from-template/browser_dom_reader", params={"worker_id": "reader"}).status_code == 409
     assert client.post("/api/workers/from-template/nope", params={"worker_id": "x"}).status_code == 404
 
@@ -62,6 +64,8 @@ def test_pipeline_run_reset_and_simulate(client):
     body = run.json()
     assert body["decisions"]["provider"] == "brain-readout"
     assert "jev:off" in body["labels"] and "llm:off" in body["labels"]
+    assert body["execution"]["larva"]["real_connectome_topology"] is True
+    assert body["execution"]["bee"]["real_connectome_topology"] is True
     assert client.post("/api/pipeline/reset", params={"worker_id": "scout"}).json()["ok"] is True
     assert client.post("/api/pipeline/reset", params={"worker_id": "missing"}).status_code == 404
     assert client.post("/api/pipeline/run", json={"worker_id": "missing", "event": {"payload": {"x": 1}}}).status_code == 404
@@ -90,6 +94,8 @@ def test_environment_modes(client, test_settings):
     assert client.post("/api/workers/webtest/run-environment").status_code == 501
     file_worker = client.post("/api/workers/from-template/local_files_memory", params={"worker_id": "files"}).json()
     file_worker["data_environment"]["file_path"] = str(test_settings.data_dir / "inbox")
+    file_worker["jev"]["enabled"] = False
+    file_worker["llm"]["enabled"] = False
     client.put("/api/workers/files", json=file_worker)
     inbox = test_settings.data_dir / "inbox"
     (inbox / "note.json").write_text('{"project":"hive","state":"testing"}', encoding="utf-8")
@@ -101,8 +107,7 @@ def test_environment_missing_worker_and_source_poll_error(client, monkeypatch):
     assert client.post("/api/workers/missing/run-environment").status_code == 404
     spec = {"id": "remote", "name": "remote", "kind": "http_json", "url": "https://example.test/api", "enabled": False}
     assert client.post("/api/sources", json=spec).status_code == 200
-    async def boom(*args, **kwargs):
-        raise ValueError("blocked")
+    async def boom(*args, **kwargs): raise ValueError("blocked")
     monkeypatch.setattr(app_module, "poll_source", boom)
     response = client.post("/api/sources/remote/poll")
     assert response.status_code == 400 and "blocked" in response.text
@@ -123,6 +128,7 @@ def test_sources_events_and_poll(client, test_settings):
 def test_connectome_guardrails(client):
     packs = client.get("/api/connectomes")
     assert packs.status_code == 200 and any(x["id"] == "fly-malecns-v1" for x in packs.json())
+    assert any(x["id"] == "fly-malecns-locomotor" for x in packs.json())
     assert client.post("/api/connectomes/missing/install").status_code == 404
     assert client.post("/api/connectomes/fly-larval-mushroom-body/install").status_code == 400
     assert client.post("/api/connectomes/fly-malecns-v1/install").status_code == 409

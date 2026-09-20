@@ -2,7 +2,7 @@
 
 HIVE Connectome is an experimental runtime for **paired mini-brains + typed decisions + optional LLM reasoning + tools**.
 
-> **Current runtime truth:** HIVE currently executes deterministic synthetic recurrent test stages. Cook/Witvliet/MaleCNS packs can be downloaded and SHA-256 verified, but the current runtime does **not** execute those biological connectomes yet. The GUI reports this explicitly. See [`docs/HOW_TO_USE.md`](docs/HOW_TO_USE.md).
+> **Current runtime truth (v0.5):** the default Larva→Bee path executes measured connectome topology: the corrected Cook *C. elegans* hermaphrodite wiring followed by a pinned 1,045-neuron / 17,224-edge MaleCNS v1.0 locomotor subgraph. Generic event→sensory input mapping and compact neural dynamics are engineered experimental layers. Synthetic engines remain available only as explicit baselines. Every run includes an execution receipt showing the exact neural engines and whether a live Venice/JEV call actually occurred. See [`docs/HOW_TO_USE.md`](docs/HOW_TO_USE.md).
 
 The first deployment target is **Windows + Docker Desktop**. The runtime is deliberately modular so experiments can change the data environment, neural substrate, decision layer, model provider, schedule, and evaluation without rewriting the application.
 
@@ -54,14 +54,16 @@ Everything else stays fixed.
 
 See `docs/WORKERS.md`, `docs/EVALUATION.md`, `docs/REPO_LEARNINGS.md`, and `docs/BROWSER_LAB.md`.
 
-## Current v0.4 scope
+## Current v0.5 scope
 
 Implemented and covered by the automated suite:
 
 - FastAPI local runtime and app factory
 - browser experiment GUI
 - editable/saved complete worker configurations
-- deterministic mini-brain test engines
+- executable Cook corrected C. elegans connectome engine
+- executable MaleCNS v1.0 1,045-neuron locomotor-subgraph LIF engine
+- deterministic synthetic engines retained as explicit controls
 - SQLite event/run store
 - Venice JEV/Decisions adapter
 - LM Studio OpenAI-compatible LLM adapter
@@ -73,14 +75,15 @@ Implemented and covered by the automated suite:
 - explicit cron tasks, including source polling
 - simulation endpoint
 - MCP server surface
-- SHA-256 verified connectome data installer
+- pinned-integrity connectome installer (SHA-256 and Git blob identity)
 - Windows/Docker Desktop configuration
-- Cook/Witvliet/MaleCNS source manifests
+- automatic installation of the two default runtime connectome packs
+- optional full ~1.1 GB MaleCNS research pack
 
 Intentionally not claimed as complete:
 
-- real Cook/Witvliet dynamics adapter
-- real MaleCNS dynamics adapter
+- higher-fidelity Cook physiological model / receptor-aware signs
+- full MaleCNS graph execution beyond the default locomotor subgraph
 - Drosophila larval mushroom-body runtime
 - automated browser DOM/OCR adapter
 - distributed worker/Waggle bus
@@ -110,7 +113,6 @@ Open:
 - GUI/API: `http://127.0.0.1:8088`
 - MCP: `http://127.0.0.1:8090/mcp`
 
-
 ## Updating an existing install
 
 From PowerShell in the cloned repository:
@@ -139,11 +141,11 @@ The GUI exposes only fixed source manifests. Downloads are:
 
 1. streamed to `.part`
 2. size-bounded
-3. SHA-256 verified
+3. SHA-256 or pinned Git-blob identity verified
 4. atomically renamed
 5. recorded in an install receipt
 
-Downloaded connectome data is **never executed** by the installer.
+The installer never executes downloaded files. After verification, the default runtime explicitly loads the two runtime packs on the next neural run.
 
 ## Tests
 
@@ -160,6 +162,7 @@ The test configuration enforces **>=80% branch-aware coverage**. Browser renderi
 - `docs/GETTING_STARTED.md`
 - `docs/HOW_TO_USE.md`
 - `docs/REFERENCE_CORPUS.md`
+- `docs/REPO_AUDIT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/WORKERS.md`
 - `docs/EVALUATION.md`

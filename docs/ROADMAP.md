@@ -17,16 +17,17 @@
 
 ## Phase 1 — real WormLink
 
-- [ ] parse Cook 2020
-- [ ] implement reproducible 302-neuron dynamics
+- [x] parse corrected Cook 2019/2020 hermaphrodite adjacency workbook
+- [x] execute compact graded recurrent dynamics over measured Cook topology
 - [ ] add Witvliet developmental snapshots
 - [ ] benchmark synthetic vs real vs shuffled worm
 - [ ] checkpoint/state reset
 
 ## Phase 2 — real FlyCore
 
-- [ ] parse MaleCNS Feather data
-- [ ] integrate a validated sparse dynamics engine
+- [x] execute pinned 1,045-neuron / 17,224-edge MaleCNS locomotor subgraph
+- [x] integrate LIF-style sparse dynamics adapted from DesktopFly
+- [ ] parse/execute the full MaleCNS Feather graph
 - [ ] immutable graph + multiple independent state vectors
 - [ ] Windows CPU/GPU benchmarks
 - [ ] full graph vs task-specific subgraphs

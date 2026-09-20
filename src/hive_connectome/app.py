@@ -21,7 +21,6 @@ from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, PipelineReques
 from hive_connectome.settings import Settings
 from hive_connectome.sources import poll_source
 from hive_connectome.workers import WorkerSpec, WorkerStore
-from hive_connectome.runtime_status import neural_runtime_status
 
 
 def create_app(settings_override: Settings | None = None, *, start_heartbeat: bool = True) -> FastAPI:
@@ -45,6 +44,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         venice_chat=venice_chat,
         lmstudio=lmstudio,
         default_llm_model=settings.llm_model,
+        data_dir=settings.data_dir,
     )
     installer = ConnectomeInstaller(settings.config_dir / "connectomes.json", settings.data_dir)
     environment_runner = WorkerEnvironmentRunner(db, worker_store, pipeline, settings.data_dir / "inbox")
@@ -73,7 +73,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             await heartbeat.stop()
         db.close()
 
-    app = FastAPI(title="HIVE Connectome", version="0.4.0", lifespan=lifespan)
+    app = FastAPI(title="HIVE Connectome", version="0.5.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.db = db
     app.state.worker_store = worker_store
@@ -93,8 +93,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     async def health():
         return {
             "ok": True,
-            "version": "0.4.0",
-            "neural_runtime": neural_runtime_status(),
+            "version": "0.5.0",
+            "neural_runtime": pipeline.runtime_status(),
             "venice_configured": venice is not None,
             "lmstudio_model": settings.llm_model,
             "workers": [w.id for w in worker_store.list()],
@@ -133,8 +133,18 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         raw = json.loads(json.dumps(template["worker"]))
         raw["id"] = worker_id
         raw["name"] = name or template["name"]
-        raw["larva"] = {"engine": "synthetic", "state_size": 16, "substrate": "c_elegans", "config": {}}
-        raw["bee"] = {"engine": "synthetic", "state_size": 64, "substrate": "drosophila", "config": {}}
+        raw["larva"] = {
+            "engine": "cook2019_connectome",
+            "state_size": 300,
+            "substrate": "c_elegans_cook_2019_corrected_2020",
+            "config": {"pack_id": "worm-cook-2020", "file": "cook_2020_adjacency.xlsx", "substeps": 8},
+        }
+        raw["bee"] = {
+            "engine": "malecns_locomotor",
+            "state_size": 1045,
+            "substrate": "drosophila_malecns_v1_locomotor",
+            "config": {"pack_id": "fly-malecns-locomotor", "file": "locomotor_circuit.json", "ms_per_event": 10},
+        }
         raw["jev"]["questions"] = {
             "meaningful_signal": {"type": "noul", "instructions": "Is this event materially meaningful to this experiment?"},
             "novelty": {"type": "score", "instructions": "How novel is this event relative to recurrent state?", "criteria": ["routine", "notable", "highly novel"]},
@@ -345,3 +355,4 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         return {"name": spec.name, "worker_id": worker_id, "count": len(results), "results": results}
 
     return app
+

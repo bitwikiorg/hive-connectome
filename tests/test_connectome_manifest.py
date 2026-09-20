@@ -8,4 +8,4 @@ def test_manifest_has_hashes_for_installable_files():
         assert pack["files"]
         for f in pack["files"]:
             assert f["url"].startswith("https://")
-            assert len(f["sha256"])==64
+            assert (len(f.get("sha256", "")) == 64) or (len(f.get("git_blob_sha", "")) == 40)

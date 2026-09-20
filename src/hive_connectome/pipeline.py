@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from hive_connectome.brains.synthetic import DeterministicMiniBrain
+from hive_connectome.brains.connectome import CookConnectomeBrain, MaleCNSLocomotorBrain
 from hive_connectome.db import HiveDB
 from hive_connectome.providers.lmstudio import LMStudio
 from hive_connectome.providers.venice import VeniceChat, VeniceJev
@@ -16,6 +17,7 @@ from hive_connectome.schemas import (
     PipelineResult,
 )
 from hive_connectome.workers import WorkerSpec, WorkerStore
+from hive_connectome.brains.base import MiniBrain
 
 
 def brain_readout(state: dict[str, Any]) -> DecisionBundle:
@@ -44,6 +46,7 @@ class HivePipeline:
         venice_chat: VeniceChat | None = None,
         lmstudio: LMStudio | None = None,
         default_llm_model: str | None = None,
+        data_dir=None,
     ):
         self.db = db
         self.workers = workers
@@ -51,7 +54,25 @@ class HivePipeline:
         self.venice_chat = venice_chat
         self.lmstudio = lmstudio
         self.default_llm_model = default_llm_model
-        self._brains: dict[str, tuple[DeterministicMiniBrain, DeterministicMiniBrain, tuple]] = {}
+        from pathlib import Path
+        self.data_dir = Path(data_dir or db.path.parent).resolve()
+        self._brains: dict[str, tuple[MiniBrain, MiniBrain, tuple]] = {}
+
+    def _engine(self, worker: WorkerSpec, stage: str, spec):
+        brain_id = f"{worker.id}:{stage}"
+        if spec.engine == "synthetic":
+            kind = BrainKind.WORM_LINK if stage == "larva" else BrainKind.FLY_CORE
+            return DeterministicMiniBrain(brain_id, kind, spec.state_size)
+        pack_id = spec.config.get("pack_id")
+        filename = spec.config.get("file")
+        if not pack_id or not filename:
+            raise ValueError(f"{stage} connectome engine requires config.pack_id and config.file")
+        path = self.data_dir / "connectomes" / pack_id / filename
+        if spec.engine == "cook2019_connectome":
+            return CookConnectomeBrain(brain_id, path, substeps=int(spec.config.get("substeps", 8)))
+        if spec.engine == "malecns_locomotor":
+            return MaleCNSLocomotorBrain(brain_id, path, ms_per_event=int(spec.config.get("ms_per_event", 10)))
+        raise NotImplementedError(f"unknown neural engine: {spec.engine}")
 
     def _pair(self, worker: WorkerSpec):
         signature = (
@@ -67,12 +88,39 @@ class HivePipeline:
         existing = self._brains.get(worker.id)
         if existing and existing[2] == signature:
             return existing[0], existing[1]
-        if worker.larva.engine != "synthetic" or worker.bee.engine != "synthetic":
-            raise NotImplementedError("v0.3 currently executes synthetic test engines; real connectome adapters remain next.")
-        larva = DeterministicMiniBrain(f"{worker.id}:larva", BrainKind.WORM_LINK, worker.larva.state_size)
-        bee = DeterministicMiniBrain(f"{worker.id}:bee", BrainKind.FLY_CORE, worker.bee.state_size)
+        larva = self._engine(worker, "larva", worker.larva)
+        bee = self._engine(worker, "bee", worker.bee)
         self._brains[worker.id] = (larva, bee, signature)
         return larva, bee
+
+    def runtime_status(self) -> dict[str, Any]:
+        workers = self.workers.list()
+        worker = next((w for w in workers if w.id == "scout"), workers[0] if workers else None)
+        if worker is None:
+            return {"ready": False, "backend": "none", "note": "no workers configured"}
+        def stage_status(stage: str, spec):
+            if spec.engine == "synthetic":
+                return {"engine": spec.engine, "real_connectome_topology": False, "installed": True}
+            pack_id, filename = spec.config.get("pack_id"), spec.config.get("file")
+            path = self.data_dir / "connectomes" / str(pack_id) / str(filename)
+            return {
+                "engine": spec.engine,
+                "real_connectome_topology": True,
+                "installed": path.exists(),
+                "pack_id": pack_id,
+                "file": filename,
+            }
+        larva = stage_status("larva", worker.larva)
+        bee = stage_status("bee", worker.bee)
+        ready = bool(larva["installed"] and bee["installed"] and larva["real_connectome_topology"] and bee["real_connectome_topology"])
+        return {
+            "ready": ready,
+            "backend": f"{larva['engine']} → {bee['engine']}",
+            "real_connectome_runtime_ready": ready,
+            "larva": larva,
+            "bee": bee,
+            "note": "Measured connectome topology is executed on each run when ready; input encoding and compact dynamics are engineered experimental layers.",
+        }
 
     def reset(self, worker_id: str | None = None):
         if worker_id is None:
@@ -81,9 +129,10 @@ class HivePipeline:
                 bee.reset()
             return
         worker = self.workers.get(worker_id)
-        larva, bee = self._pair(worker)
-        larva.reset()
-        bee.reset()
+        existing = self._brains.get(worker.id)
+        if existing:
+            existing[0].reset()
+            existing[1].reset()
 
     @staticmethod
     def _noul(bundle: DecisionBundle, key: str) -> float:
@@ -140,10 +189,8 @@ class HivePipeline:
                     worker.jev.questions,
                     model=worker.jev.model,
                 )
-            elif req.mode == "live":
-                unresolved.append("JEV enabled for this worker but Venice is not configured.")
-            elif req.mode == "auto" and self.venice is None:
-                unresolved.append("JEV enabled but unavailable; brain readout used.")
+            elif req.mode != "offline":
+                raise RuntimeError("JEV was requested, but Venice/JEV is not configured. HIVE will not silently substitute the fixed readout.")
 
         novelty = float(decisions.answers.get("novelty", {}).get("score", 1.0))
         meaningful = self._noul(decisions, "meaningful_signal")
@@ -162,7 +209,7 @@ class HivePipeline:
                 should_llm = True
             elif activation == "manual":
                 should_llm = req.force_llm
-            else:  # jev_gate
+            else:
                 if jev_enabled:
                     should_llm = req.force_llm or llm_needed >= worker.jev.llm_gate_threshold or route == "escalate"
                 else:
@@ -231,6 +278,12 @@ class HivePipeline:
             modulation=modulation,
             labels=labels if worker.outputs.write_labels else [],
             unresolved=unresolved,
+            execution={
+                "larva": {"engine": larva.engine, "real_connectome_topology": bool(larva.metadata.get("real_connectome_topology")), "metadata": larva.metadata},
+                "bee": {"engine": bee.engine, "real_connectome_topology": bool(bee.metadata.get("real_connectome_topology")), "metadata": bee.metadata},
+                "jev": {"requested": jev_enabled, "called": decisions.provider == "venice", "provider": decisions.provider, "model": decisions.model},
+                "llm": {"requested": llm_enabled, "called": llm is not None, "provider": llm.provider if llm else None, "model": llm.model if llm else None},
+            },
         )
         if worker.outputs.save_run:
             self.db.insert_run(result.model_dump(mode="json"))

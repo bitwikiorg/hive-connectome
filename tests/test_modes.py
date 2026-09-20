@@ -5,6 +5,7 @@ from hive_connectome.db import HiveDB
 from hive_connectome.pipeline import HivePipeline
 from hive_connectome.schemas import DecisionBundle, EventEnvelope, LLMResult, PipelineRequest
 from hive_connectome.workers import WorkerStore
+from connectome_fixtures import install_runtime_fixtures
 
 
 class FakeJev:
@@ -29,6 +30,7 @@ class FakeLLM:
 
 
 def make(tmp_path):
+    install_runtime_fixtures(tmp_path)
     db=HiveDB(tmp_path/"hive.db")
     workers=WorkerStore(tmp_path/"workers.json",Path(__file__).parents[1]/"config"/"workers.default.json")
     lm=FakeLLM()
@@ -38,53 +40,113 @@ def make(tmp_path):
 @pytest.mark.asyncio
 async def test_brain_only_calls_neither(tmp_path):
     p,lm=make(tmp_path)
-    out=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
-    assert out.decisions.provider=="brain-readout" and out.llm is None and lm.calls==0
+    out=await p.run(PipelineRequest(
+        worker_id="scout",jev_enabled=False,llm_enabled=False,
+        event=EventEnvelope(payload={"x":1})
+    ))
+    assert out.decisions.provider=="brain-readout"
+    assert out.llm is None
+    assert lm.calls==0
     p.db.close()
+
 
 @pytest.mark.asyncio
 async def test_brain_llm_calls_llm_without_jev(tmp_path):
     p,lm=make(tmp_path)
-    out=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=True,event=EventEnvelope(payload={"x":1})))
-    assert out.decisions.provider=="brain-readout" and out.llm is not None and lm.calls==1
+    out=await p.run(PipelineRequest(
+        worker_id="scout",jev_enabled=False,llm_enabled=True,
+        event=EventEnvelope(payload={"x":1})
+    ))
+    assert out.decisions.provider=="brain-readout"
+    assert out.llm is not None
+    assert lm.calls==1
     p.db.close()
+
 
 @pytest.mark.asyncio
 async def test_brain_jev_does_not_call_llm(tmp_path):
     p,lm=make(tmp_path)
-    out=await p.run(PipelineRequest(worker_id="scout",jev_enabled=True,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
-    assert out.decisions.provider=="venice" and out.llm is None and lm.calls==0
+    out=await p.run(PipelineRequest(
+        worker_id="scout",jev_enabled=True,llm_enabled=False,
+        event=EventEnvelope(payload={"x":1})
+    ))
+    assert out.decisions.provider=="venice"
+    assert out.llm is None
+    assert lm.calls==0
     p.db.close()
+
 
 @pytest.mark.asyncio
 async def test_jev_gates_llm(tmp_path):
     p,lm=make(tmp_path)
-    out=await p.run(PipelineRequest(worker_id="scout",jev_enabled=True,llm_enabled=True,event=EventEnvelope(payload={"x":1})))
-    assert out.decisions.provider=="venice" and out.llm is None and lm.calls==0
+    out=await p.run(PipelineRequest(
+        worker_id="scout",jev_enabled=True,llm_enabled=True,
+        event=EventEnvelope(payload={"x":1})
+    ))
+    assert out.decisions.provider=="venice"
+    assert out.llm is None
+    assert lm.calls==0
     p.db.close()
 
 class FakeVeniceChat:
-    def __init__(self): self.calls=[]
+    def __init__(self):
+        self.calls=[]
     async def chat(self, model, prompt, context, temperature=0.2):
-        self.calls.append((model,prompt,temperature)); return LLMResult(provider="venice",model=model,text="venice-ok")
+        self.calls.append((model,prompt,temperature))
+        return LLMResult(provider="venice",model=model,text="venice-ok")
+
 
 @pytest.mark.asyncio
 async def test_venice_llm_provider_and_worker_temperature(tmp_path):
+    install_runtime_fixtures(tmp_path)
     db=HiveDB(tmp_path/"hive.db")
     workers=WorkerStore(tmp_path/"workers.json",Path(__file__).parents[1]/"config"/"workers.default.json")
-    scout=workers.get("scout"); scout.llm.provider="venice"; scout.llm.model="chat-model"; scout.llm.activation="always"; scout.llm.temperature=0.6; workers.save(scout)
-    vc=FakeVeniceChat(); p=HivePipeline(db,workers,venice_chat=vc)
+    scout=workers.get("scout")
+    scout.llm.provider="venice"
+    scout.llm.model="chat-model"
+    scout.llm.activation="always"
+    scout.llm.temperature=0.6
+    workers.save(scout)
+    vc=FakeVeniceChat()
+    p=HivePipeline(db,workers,venice_chat=vc)
     out=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=True,event=EventEnvelope(payload={"x":1})))
-    assert out.llm.provider == "venice" and vc.calls[0][0] == "chat-model" and vc.calls[0][2] == 0.6
+    assert out.llm.provider == "venice"
+    assert vc.calls[0][0] == "chat-model"
+    assert vc.calls[0][2] == 0.6
     db.close()
+
 
 @pytest.mark.asyncio
 async def test_nonpersistent_brain_state_resets_and_labels_can_be_disabled(tmp_path):
+    install_runtime_fixtures(tmp_path)
     db=HiveDB(tmp_path/"hive.db")
     workers=WorkerStore(tmp_path/"workers.json",Path(__file__).parents[1]/"config"/"workers.default.json")
-    scout=workers.get("scout"); scout.runtime.persist_brain_state=False; scout.outputs.write_labels=False; workers.save(scout)
+    scout=workers.get("scout")
+    scout.runtime.persist_brain_state=False
+    scout.outputs.write_labels=False
+    workers.save(scout)
     p=HivePipeline(db,workers)
     a=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
     b=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
-    assert a.worm.step == 1 and b.worm.step == 1 and a.labels == [] and b.labels == []
+    assert a.worm.step == 1 and b.worm.step == 1
+    assert a.labels == [] and b.labels == []
+    db.close()
+
+@pytest.mark.asyncio
+async def test_jev_requested_without_venice_never_silently_falls_back(tmp_path):
+    install_runtime_fixtures(tmp_path)
+    db = HiveDB(tmp_path / "hive.db")
+    workers = WorkerStore(
+        tmp_path / "workers.json",
+        Path(__file__).parents[1] / "config" / "workers.default.json",
+    )
+    pipeline = HivePipeline(db, workers, venice=None)
+    with pytest.raises(RuntimeError, match="will not silently substitute"):
+        await pipeline.run(PipelineRequest(
+            worker_id="scout",
+            jev_enabled=True,
+            llm_enabled=False,
+            mode="auto",
+            event=EventEnvelope(payload={"x": 1}),
+        ))
     db.close()
