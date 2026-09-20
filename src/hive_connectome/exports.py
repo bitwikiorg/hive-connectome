@@ -31,6 +31,69 @@ def _connectome_receipts(data_dir: Path) -> list[dict[str, Any]]:
     return receipts
 
 
+def _execution_receipts(data_dir: Path) -> list[dict[str, Any]]:
+    root = data_dir / "execution_receipts"
+    if not root.exists():
+        return []
+    receipts = []
+    for path in sorted(root.glob("*.json")):
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            receipt["_relative_path"] = str(path.relative_to(data_dir))
+            receipts.append(receipt)
+        except Exception as exc:
+            receipts.append({"_relative_path": str(path.relative_to(data_dir)), "_error": str(exc)})
+    return receipts
+
+
+def _safe_artifact(data_dir: Path, relative: str) -> Path | None:
+    try:
+        root = data_dir.resolve()
+        path = (root / relative).resolve()
+        path.relative_to(root)
+    except (ValueError, OSError):
+        return None
+    return path if path.is_file() else None
+
+
+def _run_artifacts(runs: list[dict[str, Any]], data_dir: Path) -> list[tuple[str, Path]]:
+    artifacts: dict[str, Path] = {}
+    for run in runs:
+        for stage in run.get("stages", {}).values():
+            relative = stage.get("metadata", {}).get("recording_artifact")
+            if not relative:
+                continue
+            path = _safe_artifact(data_dir, str(relative))
+            if path is not None:
+                artifacts[str(relative)] = path
+    return sorted(artifacts.items())
+
+
+def _compiled_manifests(runs: list[dict[str, Any]], data_dir: Path) -> list[tuple[str, Path]]:
+    selected: dict[str, Path] = {}
+    for run in runs:
+        for stage in run.get("stages", {}).values():
+            raw = stage.get("metadata", {}).get("compiled_manifest")
+            if not raw:
+                continue
+            path = Path(str(raw))
+            if path.is_absolute():
+                try:
+                    relative = str(path.resolve().relative_to(data_dir.resolve()))
+                except (ValueError, OSError):
+                    continue
+            else:
+                relative = str(path)
+            safe = _safe_artifact(data_dir, relative)
+            if safe is None:
+                continue
+            selected[relative] = safe
+            ids = safe.parent / "ids.npy"
+            if ids.is_file():
+                selected[str(ids.relative_to(data_dir))] = ids
+    return sorted(selected.items())
+
+
 def _run_csv(runs: list[dict[str, Any]]) -> str:
     buffer = io.StringIO()
     fields = [
@@ -102,9 +165,13 @@ def build_experiment_export(
         for worker in workers.list()
         if worker_id is None or worker.id == worker_id
     ]
+    artifacts = _run_artifacts(runs, data_dir)
+    compiled = _compiled_manifests(runs, data_dir)
+    execution_receipts = _execution_receipts(data_dir)
+
     manifest = {
         "format": "hive-experiment-bundle",
-        "version": 1,
+        "version": 2,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "worker_filter": worker_id,
         "limit": limit,
@@ -113,6 +180,9 @@ def build_experiment_export(
             "events": len(events_by_id),
             "provider_calls": len(calls),
             "cores": len(selected_workers),
+            "state_artifacts": len(artifacts),
+            "compiled_graph_files": len(compiled),
+            "execution_receipts": len(execution_receipts),
         },
         "contents": {
             "runs.jsonl": "Lossless saved run records including stage observations, bridge traces, decisions, LLM output, and resolved Core config.",
@@ -120,6 +190,9 @@ def build_experiment_export(
             "provider_calls.jsonl": "Auditable external inference transport receipts. API keys are never exported.",
             "cores.json": "Core definitions at export time. Each run also embeds its resolved configuration.",
             "connectome_receipts.json": "Pinned dataset installation receipts available on this HIVE instance.",
+            "execution_receipts.json": "Successful measured-topology execution receipts used by readiness gates.",
+            "recordings/": "Full per-stage numerical state artifacts for runs configured with recording_level=full.",
+            "compiled/": "Compiled graph manifest and neuron ID arrays needed to interpret recorded full-state vectors; sparse weights are not duplicated into exports.",
             "runs.csv": "Flattened analysis convenience table; not lossless.",
             "provider_calls.csv": "Flattened provider-call convenience table.",
         },
@@ -130,7 +203,10 @@ def build_experiment_export(
 The JSONL files are canonical. CSV files are convenience projections and omit high-dimensional state.
 A run embeds the resolved Core configuration used at execution time so later edits do not rewrite history.
 Provider call receipts contain request/response hashes, models, endpoint, timing and status, but never API keys.
-Connectome installation receipts prove downloaded bytes; stage execution metadata proves what engine actually ran.
+Connectome installation receipts prove downloaded bytes; execution receipts prove what measured graph actually ran.
+When recording_level=full, compressed numerical state artifacts are included under recordings/.
+Compiled graph manifests and neuron IDs are included when referenced so state vectors can be mapped back to graph nodes.
+Full sparse connectome weights are intentionally not duplicated into every export; the manifest carries source and array hashes.
 """
 
     output = io.BytesIO()
@@ -142,6 +218,11 @@ Connectome installation receipts prove downloaded bytes; stage execution metadat
         archive.writestr("provider_calls.jsonl", _jsonl(calls))
         archive.writestr("cores.json", json.dumps(selected_workers, indent=2))
         archive.writestr("connectome_receipts.json", json.dumps(_connectome_receipts(data_dir), indent=2))
+        archive.writestr("execution_receipts.json", json.dumps(execution_receipts, indent=2))
         archive.writestr("runs.csv", _run_csv(runs))
         archive.writestr("provider_calls.csv", _provider_csv(calls))
+        for relative, path in artifacts:
+            archive.write(path, arcname=relative)
+        for relative, path in compiled:
+            archive.write(path, arcname=relative)
     return output.getvalue()
