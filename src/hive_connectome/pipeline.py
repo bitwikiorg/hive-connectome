@@ -159,7 +159,7 @@ class HivePipeline:
     def _target_candidates(engine: MiniBrain) -> list[int]:
         candidates = getattr(engine, "input_candidates", None)
         if candidates is not None:
-            return list(candidates)
+            return [int(value) for value in candidates]
         size = getattr(engine, "n", None) or getattr(engine, "size", None)
         return list(range(int(size or 0)))
 
