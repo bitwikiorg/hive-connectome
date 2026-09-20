@@ -60,7 +60,7 @@
           <label>Provider<select id="llmProvider" onchange="updateCoreControls()"><option value="venice">Venice</option><option value="lmstudio">LM Studio</option></select></label>
           <label>Model<input id="llmModel" placeholder="model id" onchange="updateCoreControls()"></label>
         </div>
-        <label>When to call<select id="llmActivation" onchange="updateCoreControls()"><option value="always">Always</option><option value="jev_gate">Only when JEV requests/escalates</option><option value="manual">Only when explicitly forced</option></select></label>
+        <label>When to call<select id="llmActivation" onchange="updateCoreControls()"><option value="always">Always</option><option value="jev_gate">JEV-gated; if JEV is off, call the LLM directly</option><option value="manual">Only when explicitly forced</option></select></label>
       </div>
 
       <div class="config-card">
