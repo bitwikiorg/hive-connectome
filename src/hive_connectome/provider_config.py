@@ -21,6 +21,7 @@ class ProviderConfigUpdate(BaseModel):
     lmstudio_api_token: str | None = Field(default=None, repr=False)
     clear_lmstudio_api_token: bool = False
     default_llm_model: str | None = None
+    clear_default_llm_model: bool = False
 
 
 class ProviderTestRequest(BaseModel):
@@ -122,6 +123,9 @@ class ProviderRegistry:
                 self._write_secret("lmstudio_api_token", update.lmstudio_api_token)
             else:
                 self._clear_secret("lmstudio_api_token")
+
+        if update.clear_default_llm_model:
+            self.config["default_llm_model"] = None
 
         self._write_public()
         return self.public()
