@@ -1,6 +1,6 @@
 # HIVE Connectome
 
-HIVE Connectome is an experimental runtime for **paired mini-brains + typed decisions + optional LLM reasoning + tools**.
+HIVE Connectome is an experimental lab for **connecting heterogeneous neural/computational substrates, changing the composition, and measuring what each component actually adds**.
 
 
 > **Current runtime truth (v0.7):** the primary study is **full Cook C. elegans → full MaleCNS v1.0**. The full `malecns_full_v1` sparse engine is implemented, but readiness remains empirical: the pinned full datasets must be installed and the exact full graph must execute successfully on the target machine and produce matching execution receipts. The 1,045-neuron MaleCNS locomotor path remains **control/development only**. See [`docs/STATE.md`](docs/STATE.md).
@@ -9,19 +9,25 @@ The first deployment target is **Windows + Docker Desktop**. The runtime is deli
 
 ## Core loop
 
+The primary GUI is an experiment instrument, not an AI-assistant task menu:
+
 ```text
-DATA ENVIRONMENT
-      ↓
-Larvaᵢ → Beeᵢ
-      ↓
-     JEV? ───── bounded typed decisions
-      ↓
-     LLM? ───── open-ended reasoning when enabled/needed
-      ↓
-    OUTPUT / STATE / NEXT WORKER
+INPUT
+  ↓
+C. elegans connectome          optional
+  ↓
+explicit bridge
+  ↓
+MaleCNS connectome             optional
+  ↓
+JEV / fixed readout            independently switchable
+  ↓
+LLM                            independently switchable
+  ↓
+RECORDED RESULT + TRACE + EXPORT
 ```
 
-A worker is one complete experiment configuration. The current biological candidates are **C. elegans** for the smaller Larva stage and Drosophila connectomes for the larger Bee stage; the names describe project roles, not claims that either organism is literally a bee larva or bee.
+A saved **Core** defines one such composition. A **Hive** chains multiple Cores only when multi-Core experiments are desired. The GUI resolves the Core through the backend, shows the exact path before execution, then renders the stages that actually executed and keeps raw JSON behind an advanced debugging view.
 
 ## Why JEV sits next to neural state
 
