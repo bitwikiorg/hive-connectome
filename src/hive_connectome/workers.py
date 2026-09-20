@@ -6,11 +6,12 @@ from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
-from hive_connectome.schemas import JevQuestion
+from hive_connectome.schemas import BrainKind, BrainStageSpec, BridgeSpec, JevQuestion
 
 
 class BrainSpec(BaseModel):
     engine: str = "synthetic"
+    enabled: bool = True
     state_size: int = Field(default=16, ge=2, le=1_000_000)
     substrate: str
     config: dict[str, Any] = Field(default_factory=dict)
@@ -75,6 +76,7 @@ class JevConfig(BaseModel):
         validation_alias=AliasChoices("llm_gate_threshold", "confidence_threshold"),
     )
     feedback_to_brain: bool = True
+    feedback_targets: list[str] = Field(default_factory=list)
 
 
 class LLMConfig(BaseModel):
@@ -102,6 +104,7 @@ class OutputSpec(BaseModel):
     write_labels: bool = True
     emit_to_hivemind: bool = False
     next_workers: list[str] = Field(default_factory=list)
+    recording_level: Literal["summary", "trace", "full"] = "trace"
 
 
 class WorkerSpec(BaseModel):
@@ -111,12 +114,72 @@ class WorkerSpec(BaseModel):
     role: str
     experiment: ExperimentSpec
     data_environment: DataEnvironmentSpec
-    larva: BrainSpec
-    bee: BrainSpec
+
+    # Legacy v0.6 fields are retained as a migration surface. The executor uses
+    # brain_chain + bridges. When brain_chain is omitted these two fields are
+    # deterministically promoted into the generic graph.
+    larva: BrainSpec | None = None
+    bee: BrainSpec | None = None
+    brain_chain: list[BrainStageSpec] = Field(default_factory=list)
+    bridges: list[BridgeSpec] = Field(default_factory=list)
+
     jev: JevConfig
     llm: LLMConfig
     runtime: RuntimeSpec = Field(default_factory=RuntimeSpec)
     outputs: OutputSpec = Field(default_factory=OutputSpec)
+
+    @model_validator(mode="after")
+    def migrate_legacy_pair(self):
+        if not self.brain_chain:
+            chain: list[BrainStageSpec] = []
+            if self.larva is not None:
+                chain.append(BrainStageSpec(
+                    id="worm",
+                    kind=BrainKind.WORM_LINK,
+                    engine=self.larva.engine,
+                    enabled=self.larva.enabled,
+                    state_size=self.larva.state_size,
+                    connectome_pack=self.larva.config.get("pack_id"),
+                    input_from=[],
+                    config={**self.larva.config, "substrate": self.larva.substrate},
+                ))
+            if self.bee is not None:
+                upstream = ["worm"] if self.larva is not None and self.larva.enabled else []
+                chain.append(BrainStageSpec(
+                    id="fly",
+                    kind=BrainKind.FLY_CORE,
+                    engine=self.bee.engine,
+                    enabled=self.bee.enabled,
+                    state_size=self.bee.state_size,
+                    connectome_pack=self.bee.config.get("pack_id"),
+                    input_from=upstream,
+                    config={**self.bee.config, "substrate": self.bee.substrate},
+                ))
+            self.brain_chain = chain
+
+        known = {stage.id for stage in self.brain_chain}
+        for stage in self.brain_chain:
+            missing = [source for source in stage.input_from if source not in known]
+            if missing:
+                raise ValueError(f"brain stage {stage.id} references unknown input stages: {missing}")
+            if stage.id in stage.input_from:
+                raise ValueError(f"brain stage {stage.id} cannot input from itself")
+
+        if not self.bridges:
+            for stage in self.brain_chain:
+                for source in stage.input_from:
+                    self.bridges.append(BridgeSpec(
+                        id=f"{source}-to-{stage.id}",
+                        source=source,
+                        target=stage.id,
+                        engine="state_projection_v1",
+                        config={"source_excerpt": 32, "target_count": 24, "gain": 1.0},
+                    ))
+
+        for bridge in self.bridges:
+            if bridge.source not in known or bridge.target not in known:
+                raise ValueError(f"bridge {bridge.id} references unknown stage")
+        return self
 
 
 class WorkerStore:

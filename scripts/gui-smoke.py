@@ -45,8 +45,8 @@ async def run(executable: str|None, screenshot: Path|None):
         await page.click('button:has-text("Load example")')
         assert len(await page.locator('#runInput').input_value())>10
         await page.click('button:has-text("Run development control")')
-        await page.wait_for_function("document.getElementById('humanResult').textContent.includes('What HIVE actually did')")
-        text=await page.locator('#humanResult').text_content(); assert 'CONTROL RESULT — NOT PRIMARY EXPERIMENT' in text; assert 'LIVE VENICE CALL' in text
+        await page.wait_for_function("document.getElementById('humanResult').textContent.includes('Neural stages actually executed')")
+        text=await page.locator('#humanResult').text_content(); assert 'CONTROL RESULT — NOT PRIMARY EXPERIMENT' in text; assert 'Jev LIVE' in text
         await page.locator('details.advanced').evaluate('(el)=>el.open=true')
         await page.click('button:has-text("Run comparison")')
         await page.wait_for_function("document.getElementById('matrixHuman').textContent.includes('jev on llm on')")

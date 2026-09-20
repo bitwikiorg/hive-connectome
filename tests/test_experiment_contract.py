@@ -48,3 +48,51 @@ def test_full_malecns_is_required_not_optional_in_public_state():
     assert subgraph["control_only"] is True
     assert "required for the primary experiment, not optional" in setup.lower()
     assert "not an optional enhancement" in state.lower()
+
+
+def test_primary_readiness_requires_execution_receipts_even_when_engine_exists(tmp_path):
+    contract=load_experiment_contract(ROOT/"config"/"experiment_contract.json")
+    cook=tmp_path/"connectomes"/"worm-cook-2020"
+    cook.mkdir(parents=True)
+    (cook/"cook_2020_adjacency.xlsx").write_bytes(b"x")
+    full=tmp_path/"connectomes"/"fly-malecns-v1"
+    full.mkdir(parents=True)
+    for name in contract["primary_pipeline"]["bee"]["required_files"]:
+        (full/name).write_bytes(b"x")
+    status=experiment_readiness(
+        contract,data_dir=tmp_path,
+        supported_engines={"cook2019_connectome","malecns_full_v1"},
+    )
+    assert status["primary_experiment_ready"] is False
+    assert status["primary_pipeline"]["bee"]["engine_supported"] is True
+    assert any("execution receipt" in item for item in status["blockers"])
+
+
+def test_primary_readiness_accepts_only_matching_execution_receipts(tmp_path):
+    contract=load_experiment_contract(ROOT/"config"/"experiment_contract.json")
+    cook=tmp_path/"connectomes"/"worm-cook-2020"
+    cook.mkdir(parents=True)
+    (cook/"cook_2020_adjacency.xlsx").write_bytes(b"x")
+    full=tmp_path/"connectomes"/"fly-malecns-v1"
+    full.mkdir(parents=True)
+    for name in contract["primary_pipeline"]["bee"]["required_files"]:
+        (full/name).write_bytes(b"x")
+    receipts=tmp_path/"execution_receipts"
+    receipts.mkdir()
+    (receipts/"cook2019_connectome--worm-cook-2020.json").write_text(json.dumps({
+        "requested_engine":"cook2019_connectome","observed_engine":"cook2019-corrected-connectome-graded-v1",
+        "pack_id":"worm-cook-2020","step":1,"node_count":300,"edge_count":1,
+        "full_connectome":False,"metadata":{"real_connectome_topology":True},
+    }))
+    (receipts/"malecns_full_v1--fly-malecns-v1.json").write_text(json.dumps({
+        "requested_engine":"malecns_full_v1","observed_engine":"malecns-full-v1-sparse-lif-v1",
+        "pack_id":"fly-malecns-v1","step":1,"node_count":166700,"edge_count":25582938,
+        "synaptic_contacts":124177617,"full_connectome":True,"state_hash":"abc",
+        "metadata":{"real_connectome_topology":True,"full_connectome":True},
+    }))
+    status=experiment_readiness(
+        contract,data_dir=tmp_path,
+        supported_engines={"cook2019_connectome","malecns_full_v1"},
+    )
+    assert status["primary_experiment_ready"] is True
+    assert status["blockers"] == []

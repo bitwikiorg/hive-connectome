@@ -29,6 +29,16 @@ def _canonical_bytes(payload: Any) -> bytes:
 
 
 def _encoded_targets(payload: Any, candidates: list[int], count: int) -> list[tuple[int, float]]:
+    if isinstance(payload, dict) and "__hive_stimulus__" in payload:
+        explicit = []
+        for item in payload.get("__hive_stimulus__") or []:
+            try:
+                idx, amplitude = int(item[0]), float(item[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            if idx >= 0:
+                explicit.append((idx, max(-4.0, min(4.0, amplitude))))
+        return explicit
     if not candidates:
         return []
     digest = hashlib.sha256(_canonical_bytes(payload)).digest()
@@ -177,7 +187,7 @@ class CookConnectomeBrain(MiniBrain):
                 "node_count": len(self.names),
                 "edge_count": len(self.edges),
                 "dynamics": "engineered graded recurrent dynamics over measured wiring",
-                "input_encoding": "engineered deterministic payload-to-sensory-neuron stimulation",
+                "input_encoding": "explicit bridge stimulus" if isinstance(payload, dict) and "__hive_stimulus__" in payload else "engineered deterministic payload-to-sensory-neuron stimulation",
             },
         )
 
@@ -289,7 +299,7 @@ class MaleCNSLocomotorBrain(MiniBrain):
                 "node_count": self.n,
                 "edge_count": len(self.edges),
                 "dynamics": "LIF-style dynamics adapted from DesktopFly over measured signed weights",
-                "input_encoding": "engineered deterministic payload-to-sensory/ascending-neuron stimulation",
+                "input_encoding": "explicit bridge stimulus" if isinstance(payload, dict) and "__hive_stimulus__" in payload else "engineered deterministic payload-to-sensory/ascending-neuron stimulation",
             },
         )
 

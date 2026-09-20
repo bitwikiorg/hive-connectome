@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import zipfile
+
+import pyarrow as pa
+import pyarrow.feather as feather
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -71,3 +74,26 @@ def write_malecns_fixture(path: Path) -> None:
 def install_runtime_fixtures(data_dir: Path) -> None:
     write_cook_fixture(data_dir/'connectomes'/'worm-cook-2020'/'cook_2020_adjacency.xlsx')
     write_malecns_fixture(data_dir/'connectomes'/'fly-malecns-locomotor'/'locomotor_circuit.json')
+
+
+def write_malecns_full_fixture(data_dir: Path) -> Path:
+    root=data_dir/'connectomes'/'fly-malecns-v1'
+    root.mkdir(parents=True,exist_ok=True)
+    annotations=pa.table({
+        'bodyId':pa.array([10,20,30,40,50],type=pa.int64()),
+        'superclass':['sensory_neuron','interneuron','descending_neuron','ascending_neuron','glia'],
+        'status':['Traced','Traced','Traced','Traced','Glia'],
+    })
+    neurotransmitters=pa.table({
+        'body':pa.array([10,20,30,40,50],type=pa.int64()),
+        'consensus_nt':['acetylcholine','gaba','acetylcholine','glutamate','acetylcholine'],
+    })
+    edges=pa.table({
+        'body_pre':pa.array([10,20,30,40,50],type=pa.int64()),
+        'body_post':pa.array([20,30,40,10,10],type=pa.int64()),
+        'weight':pa.array([5,7,3,11,100],type=pa.int64()),
+    })
+    feather.write_feather(annotations,root/'annotations.feather')
+    feather.write_feather(neurotransmitters,root/'neurotransmitters.feather')
+    feather.write_feather(edges,root/'edges.feather')
+    return root

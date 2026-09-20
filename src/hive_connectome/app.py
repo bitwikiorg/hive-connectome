@@ -6,18 +6,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from hive_connectome.connectomes.installer import ConnectomeInstaller
 from hive_connectome.db import HiveDB
 from hive_connectome.evals import EvalRequest, summarize_eval
+from hive_connectome.exports import build_experiment_export
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
 from hive_connectome.pipeline import HivePipeline
-from hive_connectome.providers.lmstudio import LMStudio
-from hive_connectome.providers.venice import VeniceChat, VeniceJev
+from hive_connectome.provider_config import ProviderConfigUpdate, ProviderRegistry, ProviderTestRequest
 from hive_connectome.scheduler import HeartbeatDaemon, validate_cron
-from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, PipelineRequest, SimulationSpec
+from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, DecisionType, EventEnvelope, HiveRunRequest, JevQuestion, PipelineRequest, SimulationSpec
 from hive_connectome.settings import Settings
 from hive_connectome.sources import poll_source
 from hive_connectome.workers import WorkerSpec, WorkerStore
@@ -30,20 +30,15 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
 
     db = HiveDB(settings.data_dir / "hive.sqlite3")
     worker_store = WorkerStore(settings.data_dir / "workers.json", settings.config_dir / "workers.default.json")
-    venice = (
-        VeniceJev(settings.venice_base_url, settings.venice_api_key, settings.venice_decision_model)
-        if settings.venice_api_key
-        else None
-    )
-    venice_chat = VeniceChat(settings.venice_base_url, settings.venice_api_key) if settings.venice_api_key else None
-    lmstudio = LMStudio(settings.lmstudio_base_url, settings.lmstudio_api_token)
+    provider_registry = ProviderRegistry(settings.data_dir, settings)
+    venice, venice_chat, lmstudio = provider_registry.clients()
     pipeline = HivePipeline(
         db,
         worker_store,
         venice=venice,
         venice_chat=venice_chat,
         lmstudio=lmstudio,
-        default_llm_model=settings.llm_model,
+        default_llm_model=provider_registry.config.get("default_llm_model"),
         data_dir=settings.data_dir,
         experiment_contract_path=settings.config_dir / "experiment_contract.json",
     )
@@ -74,7 +69,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             await heartbeat.stop()
         db.close()
 
-    app = FastAPI(title="HIVE Connectome", version="0.6.0", lifespan=lifespan)
+    app = FastAPI(title="HIVE Connectome", version="0.7.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.db = db
     app.state.worker_store = worker_store
@@ -82,6 +77,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     app.state.installer = installer
     app.state.heartbeat = heartbeat
     app.state.environment_runner = environment_runner
+    app.state.provider_registry = provider_registry
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -94,10 +90,10 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     async def health():
         return {
             "ok": True,
-            "version": "0.6.0",
+            "version": "0.7.0",
             "neural_runtime": pipeline.runtime_status(),
-            "venice_configured": venice is not None,
-            "lmstudio_model": settings.llm_model,
+            "venice_configured": pipeline.venice is not None,
+            "lmstudio_model": pipeline.default_llm_model,
             "workers": [w.id for w in worker_store.list()],
         }
 
@@ -178,20 +174,93 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         worker_store.delete(worker_id)
         return {"ok": True}
 
+    @app.get("/api/providers/config")
+    async def provider_config():
+        return provider_registry.public()
+
+    @app.put("/api/providers/config")
+    async def save_provider_config(update: ProviderConfigUpdate):
+        try:
+            public = provider_registry.update(update)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        provider_registry.apply(pipeline)
+        return public
+
+    @app.post("/api/providers/test")
+    async def provider_test(req: ProviderTestRequest):
+        try:
+            if req.capability == "venice_jev":
+                if pipeline.venice is None:
+                    raise HTTPException(400, "Venice API key is not configured")
+                result = await pipeline.venice.decide(
+                    {"hive_provider_test": True, "purpose": "prove a live Venice Decisions transaction"},
+                    {"reachable": JevQuestion(type=DecisionType.NOUL, instructions="Is this provider-test state present?")},
+                    model=req.model or provider_registry.config.get("venice_decision_model"),
+                )
+                db.insert_provider_call(result.transport, stage_id="provider-test:venice-jev")
+                return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "answers": result.answers}
+            if req.capability == "venice_chat":
+                if pipeline.venice_chat is None:
+                    raise HTTPException(400, "Venice API key is not configured")
+                model = req.model
+                if not model:
+                    raise HTTPException(400, "Venice chat test requires a model")
+                result = await pipeline.venice_chat.chat(
+                    model,
+                    "Return exactly the short token HIVE_PROVIDER_OK.",
+                    {"hive_provider_test": True},
+                    temperature=0.0,
+                )
+                db.insert_provider_call(result.transport, stage_id="provider-test:venice-chat")
+                return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "text": result.text}
+            model = req.model or pipeline.default_llm_model
+            if not model:
+                raise HTTPException(400, "LM Studio chat test requires a model")
+            result = await pipeline.lmstudio.chat(
+                model,
+                "Return exactly the short token HIVE_PROVIDER_OK.",
+                {"hive_provider_test": True},
+                temperature=0.0,
+            )
+            db.insert_provider_call(result.transport, stage_id="provider-test:lmstudio-chat")
+            return {"ok": True, "capability": req.capability, "model": result.model, "transport": result.transport, "text": result.text}
+        except HTTPException:
+            raise
+        except Exception as exc:
+            receipt = getattr(exc, "receipt", None)
+            if receipt:
+                db.insert_provider_call(receipt, stage_id=f"provider-test:{req.capability}")
+            raise HTTPException(502, str(exc))
+
     @app.get("/api/providers/status")
     async def provider_status():
+        public = provider_registry.public()
+        venice_client = pipeline.venice
+        lmstudio_client = pipeline.lmstudio
         result = {
-            "venice": {"configured": venice is not None, "ok": False, "model": settings.venice_decision_model},
-            "lmstudio": {"configured": True, "ok": False, "base_url": settings.lmstudio_base_url, "models": []},
+            "venice": {
+                "configured": venice_client is not None,
+                "ok": False,
+                "base_url": public["venice_base_url"],
+                "model": public["venice_decision_model"],
+                "models": [],
+            },
+            "lmstudio": {
+                "configured": True,
+                "ok": False,
+                "base_url": public["lmstudio_base_url"],
+                "models": [],
+            },
         }
-        if venice:
+        if venice_client:
             try:
-                result["venice"]["models"] = await venice.list_models()
+                result["venice"]["models"] = await venice_client.list_models()
                 result["venice"]["ok"] = True
             except Exception as exc:
                 result["venice"]["error"] = str(exc)
         try:
-            models = await lmstudio.list_models()
+            models = await lmstudio_client.list_models()
             result["lmstudio"]["ok"] = True
             result["lmstudio"]["models"] = models.get("data", models)
         except Exception as exc:
@@ -238,6 +307,83 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             raise HTTPException(404, f"worker not found: {exc}")
         except Exception as exc:
             raise HTTPException(502, str(exc))
+
+    @app.post("/api/hive/run")
+    async def run_hive(req: HiveRunRequest):
+        results = []
+        current_event = req.event
+        for index, core_id in enumerate(req.core_ids):
+            try:
+                result = await pipeline.run(PipelineRequest(
+                    worker_id=core_id,
+                    event=current_event,
+                    mode=req.mode,
+                    jev_enabled=req.jev_enabled,
+                    llm_enabled=req.llm_enabled,
+                ))
+            except KeyError:
+                raise HTTPException(404, f"core not found: {core_id}")
+            results.append(result)
+            if index < len(req.core_ids) - 1:
+                stage_metrics = {
+                    stage_id: obs.metrics
+                    for stage_id, obs in result.stages.items()
+                }
+                current_event = EventEnvelope(
+                    source_id=f"hive:{core_id}",
+                    kind="core_handoff",
+                    payload={
+                        "origin_event_id": req.event.id,
+                        "previous_core": core_id,
+                        "previous_run_id": result.run_id,
+                        "decisions": result.decisions.answers,
+                        "modulation": result.modulation,
+                        "labels": result.labels,
+                        "stage_metrics": stage_metrics,
+                        "llm_text": result.llm.text if result.llm else None,
+                    },
+                    provenance={
+                        "parent_run_id": result.run_id,
+                        "parent_core_id": core_id,
+                        "hive_chain": list(req.core_ids),
+                    },
+                )
+        return {
+            "core_ids": req.core_ids,
+            "count": len(results),
+            "results": [result.model_dump(mode="json") for result in results],
+        }
+
+    @app.get("/api/runs")
+    async def runs(limit: int = Query(100, ge=1, le=5000), worker_id: str | None = None):
+        return db.list_runs(limit=limit, worker_id=worker_id)
+
+    @app.get("/api/runs/{run_id}")
+    async def run_detail(run_id: str):
+        run = db.get_run(run_id)
+        if run is None:
+            raise HTTPException(404, "run not found")
+        return run
+
+    @app.get("/api/provider-calls")
+    async def provider_calls(limit: int = Query(200, ge=1, le=10000), run_id: str | None = None):
+        return db.list_provider_calls(limit=limit, run_id=run_id)
+
+    @app.get("/api/exports/experiment")
+    async def export_experiment(worker_id: str | None = None, limit: int = Query(5000, ge=1, le=50000)):
+        payload = build_experiment_export(
+            db,
+            worker_store,
+            settings.data_dir,
+            worker_id=worker_id,
+            limit=limit,
+        )
+        suffix = worker_id or "all"
+        return StreamingResponse(
+            iter([payload]),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="hive-experiment-{suffix}.zip"'},
+        )
 
     @app.post("/api/pipeline/reset")
     async def reset_pipeline(worker_id: str | None = None):

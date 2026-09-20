@@ -1,5 +1,5 @@
 import pytest
-from hive_connectome.schemas import DataSourceSpec, EventEnvelope, JevQuestion, DecisionType, BrainStageSpec, BeeUnitSpec, HivemindSpec, BrainKind
+from hive_connectome.schemas import DataSourceSpec, EventEnvelope, JevQuestion, DecisionType, BrainStageSpec, BridgeSpec, BeeUnitSpec, HivemindSpec, BrainKind
 
 def test_event_defaults():
     e=EventEnvelope(payload={"x":1}); assert e.id and e.source_id=="manual"
@@ -13,3 +13,8 @@ def test_file_drop_requires_path():
 def test_generic_brain_chain_schema():
     bee=BeeUnitSpec(id="x",role="test",brain_chain=[BrainStageSpec(id="w",kind=BrainKind.WORM_LINK,engine="synthetic",state_size=16),BrainStageSpec(id="l",kind=BrainKind.LARVAL_MB,engine="planned",enabled=False,input_from=["w"]),BrainStageSpec(id="f",kind=BrainKind.FLY_CORE,engine="synthetic",state_size=64,input_from=["w","l"])])
     hive=HivemindSpec(bee_units=[bee],default_chain=["x"]); assert hive.bee_units[0].brain_chain[1].kind==BrainKind.LARVAL_MB
+
+
+def test_bridge_schema_supports_explicit_state_projection():
+    bridge=BridgeSpec(id="w-to-f",source="w",target="f",engine="state_projection_v1",config={"gain":0.5})
+    assert bridge.engine=="state_projection_v1"
