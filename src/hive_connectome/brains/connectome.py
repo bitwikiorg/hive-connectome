@@ -299,7 +299,7 @@ class MaleCNSLocomotorBrain(MiniBrain):
                 "node_count": self.n,
                 "edge_count": len(self.edges),
                 "dynamics": "LIF-style dynamics adapted from DesktopFly over measured signed weights",
-                "input_encoding": "engineered deterministic payload-to-sensory/ascending-neuron stimulation",
+                "input_encoding": "explicit bridge stimulus" if isinstance(payload, dict) and "__hive_stimulus__" in payload else "engineered deterministic payload-to-sensory/ascending-neuron stimulation",
             },
         )
 
