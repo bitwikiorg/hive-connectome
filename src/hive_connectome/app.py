@@ -15,8 +15,7 @@ from hive_connectome.evals import EvalRequest, summarize_eval
 from hive_connectome.exports import build_experiment_export
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
 from hive_connectome.pipeline import HivePipeline
-from hive_connectome.providers.lmstudio import LMStudio
-from hive_connectome.providers.venice import VeniceChat, VeniceJev
+from hive_connectome.provider_config import ProviderConfigUpdate, ProviderRegistry
 from hive_connectome.scheduler import HeartbeatDaemon, validate_cron
 from hive_connectome.schemas import CronTaskSpec, DataSourceSpec, EventEnvelope, HiveRunRequest, PipelineRequest, SimulationSpec
 from hive_connectome.settings import Settings
@@ -31,20 +30,15 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
 
     db = HiveDB(settings.data_dir / "hive.sqlite3")
     worker_store = WorkerStore(settings.data_dir / "workers.json", settings.config_dir / "workers.default.json")
-    venice = (
-        VeniceJev(settings.venice_base_url, settings.venice_api_key, settings.venice_decision_model)
-        if settings.venice_api_key
-        else None
-    )
-    venice_chat = VeniceChat(settings.venice_base_url, settings.venice_api_key) if settings.venice_api_key else None
-    lmstudio = LMStudio(settings.lmstudio_base_url, settings.lmstudio_api_token)
+    provider_registry = ProviderRegistry(settings.data_dir, settings)
+    venice, venice_chat, lmstudio = provider_registry.clients()
     pipeline = HivePipeline(
         db,
         worker_store,
         venice=venice,
         venice_chat=venice_chat,
         lmstudio=lmstudio,
-        default_llm_model=settings.llm_model,
+        default_llm_model=provider_registry.config.get("default_llm_model"),
         data_dir=settings.data_dir,
         experiment_contract_path=settings.config_dir / "experiment_contract.json",
     )
@@ -75,7 +69,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             await heartbeat.stop()
         db.close()
 
-    app = FastAPI(title="HIVE Connectome", version="0.6.0", lifespan=lifespan)
+    app = FastAPI(title="HIVE Connectome", version="0.7.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.db = db
     app.state.worker_store = worker_store
@@ -83,6 +77,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     app.state.installer = installer
     app.state.heartbeat = heartbeat
     app.state.environment_runner = environment_runner
+    app.state.provider_registry = provider_registry
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -95,10 +90,10 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     async def health():
         return {
             "ok": True,
-            "version": "0.6.0",
+            "version": "0.7.0",
             "neural_runtime": pipeline.runtime_status(),
-            "venice_configured": venice is not None,
-            "lmstudio_model": settings.llm_model,
+            "venice_configured": pipeline.venice is not None,
+            "lmstudio_model": pipeline.default_llm_model,
             "workers": [w.id for w in worker_store.list()],
         }
 
@@ -179,20 +174,47 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         worker_store.delete(worker_id)
         return {"ok": True}
 
+    @app.get("/api/providers/config")
+    async def provider_config():
+        return provider_registry.public()
+
+    @app.put("/api/providers/config")
+    async def save_provider_config(update: ProviderConfigUpdate):
+        try:
+            public = provider_registry.update(update)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        provider_registry.apply(pipeline)
+        return public
+
     @app.get("/api/providers/status")
     async def provider_status():
+        public = provider_registry.public()
+        venice_client = pipeline.venice
+        lmstudio_client = pipeline.lmstudio
         result = {
-            "venice": {"configured": venice is not None, "ok": False, "model": settings.venice_decision_model},
-            "lmstudio": {"configured": True, "ok": False, "base_url": settings.lmstudio_base_url, "models": []},
+            "venice": {
+                "configured": venice_client is not None,
+                "ok": False,
+                "base_url": public["venice_base_url"],
+                "model": public["venice_decision_model"],
+                "models": [],
+            },
+            "lmstudio": {
+                "configured": True,
+                "ok": False,
+                "base_url": public["lmstudio_base_url"],
+                "models": [],
+            },
         }
-        if venice:
+        if venice_client:
             try:
-                result["venice"]["models"] = await venice.list_models()
+                result["venice"]["models"] = await venice_client.list_models()
                 result["venice"]["ok"] = True
             except Exception as exc:
                 result["venice"]["error"] = str(exc)
         try:
-            models = await lmstudio.list_models()
+            models = await lmstudio_client.list_models()
             result["lmstudio"]["ok"] = True
             result["lmstudio"]["models"] = models.get("data", models)
         except Exception as exc:
