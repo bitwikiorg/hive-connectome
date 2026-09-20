@@ -29,7 +29,7 @@ async function boot(){
  workers=await api('/api/workers');
  $('workerSelect').innerHTML=workers.map(w=>`<option value="${w.id}">${w.name} — ${esc(w.description||w.role)}</option>`).join('');
  loadWorkerForm();
- await Promise.all([loadConnectomes(),loadSources(),loadEventsHuman()]);
+ await Promise.all([loadConnectomes(),loadSources(),loadEventsHuman(),loadProviderConfig(),loadProviders()]);
 }
 
 function selectTask(){
@@ -171,12 +171,53 @@ async function runMatrix(){
   $('matrixHuman').innerHTML=Object.entries(x.summary||{}).map(([k,v])=>`<div class="event"><b>${esc(k.replaceAll('_',' '))}</b><div class="meta">latency ${Math.round(v.mean_latency_ms||0)} ms · Jev calls ${v.jev_calls} · LLM calls ${v.llm_calls} · failures ${v.failures}</div></div>`).join('');
  }catch(e){$('matrixHuman').innerHTML=`<div class="bad">${esc(e.message)}</div>`}
 }
+async function loadProviderConfig(){
+ try{
+  const x=await api('/api/providers/config');
+  $('veniceBaseUrl').value=x.venice_base_url||'';
+  $('veniceDefaultJevModel').value=x.venice_decision_model||'jev-latest';
+  $('lmstudioBaseUrl').value=x.lmstudio_base_url||'';
+  $('defaultLlmModel').value=x.default_llm_model||'';
+  $('providerConfigState').textContent=`Venice key: ${x.venice_api_key_configured?'configured':'missing'} · LM Studio token: ${x.lmstudio_api_token_configured?'configured':'not set'}`;
+ }catch(e){$('providerConfigState').textContent=e.message}
+}
+
+async function saveProviderConfig(){
+ try{
+  const payload={
+   venice_base_url:$('veniceBaseUrl').value.trim(),
+   venice_decision_model:$('veniceDefaultJevModel').value.trim()||'jev-latest',
+   lmstudio_base_url:$('lmstudioBaseUrl').value.trim(),
+   default_llm_model:$('defaultLlmModel').value.trim()||null,
+  };
+  if($('veniceApiKey').value)payload.venice_api_key=$('veniceApiKey').value;
+  if($('lmstudioApiToken').value)payload.lmstudio_api_token=$('lmstudioApiToken').value;
+  const x=await api('/api/providers/config',{method:'PUT',body:JSON.stringify(payload)});
+  $('veniceApiKey').value=''; $('lmstudioApiToken').value='';
+  $('providerConfigState').textContent=`Saved · Venice key: ${x.venice_api_key_configured?'configured':'missing'} · LM Studio token: ${x.lmstudio_api_token_configured?'configured':'not set'}`;
+  await loadHealth(); await loadProviders();
+ }catch(e){$('providerConfigState').textContent=`Save failed: ${e.message}`}
+}
+
+async function testProvider(capability){
+ try{
+  let model=null;
+  if(capability==='venice_jev')model=$('jevModel').value.trim()||$('veniceDefaultJevModel').value.trim();
+  if(capability==='venice_chat')model=$('llmProvider').value==='venice'?$('llmModel').value.trim():$('llmModel').value.trim();
+  if(capability==='lmstudio_chat')model=$('llmProvider').value==='lmstudio'?$('llmModel').value.trim():$('defaultLlmModel').value.trim();
+  const x=await api('/api/providers/test',{method:'POST',body:JSON.stringify({capability,model:model||null})});
+  $('providers').textContent=`REAL CALL SUCCEEDED\ncapability: ${capability}\nmodel: ${x.model||'—'}\ncall id: ${x.transport?.call_id||'—'}\nHTTP: ${x.transport?.http_status||'—'}\nlatency: ${Math.round(x.transport?.latency_ms||0)} ms\nrequest hash: ${x.transport?.request_hash||'—'}\nresponse hash: ${x.transport?.response_hash||'—'}\n\n${j(x)}`;
+ }catch(e){$('providers').textContent=`REAL CALL FAILED\n${e.message}`}
+}
+
 async function loadProviders(){
  try{
   const x=await api('/api/providers/status');
   const lines=[
    `Venice: ${x.venice?.configured?(x.venice.ok?'reachable':'configured but failing'):'not configured'} · decision model ${x.venice?.model||'—'}`,
    `LM Studio: ${x.lmstudio?.ok?'reachable':'unreachable'} · ${x.lmstudio?.base_url||'—'}`,
+   '',
+   'Connection/status check only. Use a real-call button above to prove inference.',
    '',
    'Raw diagnostics:',
    j(x)
