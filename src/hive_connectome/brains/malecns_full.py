@@ -289,7 +289,7 @@ class MaleCNSFullBrain(MiniBrain):
         self.tonic = np.float32(tonic)
         self.threshold = np.float32(threshold)
         self.substeps = max(1, int(substeps))
-        self.sample_size = max(16, min(int(sample_size), self.n))
+        self.sample_size = max(1, min(int(sample_size), self.n))
         self.sample_indices = np.linspace(0, self.n - 1, self.sample_size, dtype=np.int32)
         self.reset()
 
