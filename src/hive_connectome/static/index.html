@@ -108,8 +108,22 @@
       </div>
 
       <div class="subcard">
-        <h3>Provider diagnostics</h3>
-        <button class="secondary" onclick="loadProviders(true)">Test Venice + LM Studio</button>
+        <h3>Provider connections</h3>
+        <p class="meta">These are live backend connections. Secrets are write-only and stored separately from exportable configuration.</p>
+        <div class="formgrid">
+          <label>Venice base URL<input id="veniceBaseUrl"></label>
+          <label>Venice decision model<input id="veniceDefaultJevModel"></label>
+          <label>Venice API key<input id="veniceApiKey" type="password" placeholder="leave blank to keep current"></label>
+          <label>LM Studio base URL<input id="lmstudioBaseUrl"></label>
+          <label>LM Studio token<input id="lmstudioApiToken" type="password" placeholder="optional / blank keeps current"></label>
+          <label>Default local LLM model<input id="defaultLlmModel" placeholder="optional"></label>
+        </div>
+        <button class="secondary" onclick="saveProviderConfig()">Save connections</button>
+        <button class="secondary" onclick="testProvider('venice_jev')">Run real JEV call</button>
+        <button class="secondary" onclick="testProvider('venice_chat')">Run real Venice LLM call</button>
+        <button class="secondary" onclick="testProvider('lmstudio_chat')">Run real LM Studio call</button>
+        <button class="secondary" onclick="loadProviders()">Refresh status</button>
+        <div id="providerConfigState" class="meta"></div>
         <pre id="providers">not tested</pre>
       </div>
 
