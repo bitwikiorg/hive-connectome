@@ -189,6 +189,7 @@ async function saveProviderConfig(){
    venice_decision_model:$('veniceDefaultJevModel').value.trim()||'jev-latest',
    lmstudio_base_url:$('lmstudioBaseUrl').value.trim(),
    default_llm_model:$('defaultLlmModel').value.trim()||null,
+   clear_default_llm_model:!$('defaultLlmModel').value.trim(),
   };
   if($('veniceApiKey').value)payload.venice_api_key=$('veniceApiKey').value;
   if($('lmstudioApiToken').value)payload.lmstudio_api_token=$('lmstudioApiToken').value;
