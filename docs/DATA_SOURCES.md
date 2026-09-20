@@ -1,9 +1,42 @@
 # Data Sources
 
-v0.1 supports public HTTP JSON, RSS/Atom, and a local file-drop inbox.
+## Current built-ins
 
-Local files go in `data/inbox/`; accepted formats are JSON, JSONL, TXT, Markdown, and CSV up to 10 MB.
+### HTTP JSON
 
-Free examples in `config/sources.example.json` include DefiLlama protocols and the Base public JSON-RPC head, disabled by default. Public endpoints may change availability or limits, so HIVE records source health rather than assuming permanence.
+Public HTTP/HTTPS JSON API, GET or POST.
 
-Future adapters: GitHub, Discourse, wallet/account observers, Base logs/events, IRIS/Based Nut data layer, local chat exports, local repo index, and explicitly opted-in email/calendar connectors.
+### RSS / Atom
+
+For publications, updates, changelogs, and feeds.
+
+### File drop
+
+Export/copy files into:
+
+```text
+data/inbox/
+```
+
+The container reads only `.json`, `.jsonl`, `.txt`, `.md`, and `.csv` up to 10 MB each.
+
+## Free examples
+
+`config/sources.example.json` includes disabled examples for:
+
+- DefiLlama public protocols endpoint
+- Base public JSON-RPC head
+- local inbox
+
+Public endpoints may change limits or availability; HIVE records source health rather than assuming permanence.
+
+## Future adapters
+
+- GitHub
+- Discourse
+- wallet/account observers
+- Base logs/events
+- domain-specific data APIs
+- local chat exports
+- local repo index
+- email/calendar through explicit opt-in connectors

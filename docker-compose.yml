@@ -16,8 +16,6 @@ services:
       - hive-data:/data
       - ./data/inbox:/data/inbox:ro
       - ./.secrets:/run/secrets:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3)"]
       interval: 10s

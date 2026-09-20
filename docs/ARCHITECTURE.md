@@ -1,38 +1,72 @@
 # Architecture
 
-HIVE is not one neural network and not one LLM.
+## Runtime unit
+
+HIVE is not one neural network and not one LLM. The primary unit is a saved worker experiment:
 
 ```text
-data → Waggle bus → Bee Unit
-                    WormLink → FlyCore → JEV → LLM?
-                                   ↓
-                              Comb memory
+                    ┌──────────── Worker A ────────────┐
+data environment →  │ Larva_A → Bee_A → JEV? → LLM? │ → output/state
+                    └──────────────────────────────────┘
+                                  │ optional routing
+                    ┌──────────── Worker B ────────────┐
+                    │ Larva_B → Bee_B → JEV? → LLM? │
+                    └──────────────────────────────────┘
 ```
 
-A Bee Unit is independently replaceable. v0.1 uses deterministic synthetic mini-brains so orchestration can be tested before large biological data is loaded.
+Each worker owns its experiment objective, data environment, prompts/questions, neural configuration, provider toggles, runtime, and outputs. This keeps experiments reproducible and makes ablations meaningful.
 
-## Neural + Jev cohesion
+## Neural + JEV cohesion
 
-Jev receives explicit structured state containing the event, WormLink metrics/state excerpt, and FlyCore metrics/state excerpt. Its typed answers produce an engineered modulation scalar that is fed back into mini-brain state on the next cycle. This is a testable closed loop, not a claim that JEV is biological neuromodulation.
+The bridge is explicit structured state:
 
-## LLM escalation
+```json
+{
+  "worker": {"experiment": {}, "data_environment": {}},
+  "event": {},
+  "larva": {"metrics": {}, "state_excerpt": []},
+  "bee": {"metrics": {}, "state_excerpt": []}
+}
+```
 
-The LLM is not in the always-on hot path. Escalate for `llm_needed`, an `escalate` route, low confidence, generation/explanation, or semantic merge. Prefer LM Studio; if unavailable, preserve unresolved state.
+JEV evaluates that shared state with bounded questions. When enabled, a JEV-derived modulation value may feed the next neural cycle. This is an engineered closed loop, not a claim that JEV reproduces biological neuromodulation.
 
-## Authority
+For `noul`, the returned value is the probability of “yes”; it is not a separate confidence field. `choice` and `score` may include confidence/distributions according to the provider schema.
+
+## LLM behavior
+
+LLM use is independently configurable per worker:
+
+- `always`
+- `jev_gate`
+- `manual`
+
+Workers can use LM Studio or Venice Chat when configured. A worker may also run with no LLM at all.
+
+## Authority boundary
 
 ```text
-observe → neural state → JEV → optional LLM → JEV verify → proposal
-                                                        ↓
-                                              deterministic policy
-                                                        ↓
-                                               explicit executor
+observe → recurrent state → bounded decision → optional LLM → proposal/output
+                                                           ↓
+                                                  deterministic policy
+                                                           ↓
+                                                explicit external executor
 ```
+
+Inference output is not authority. Irreversible or high-impact actions require a separate deterministic permission/execution boundary.
 
 ## Deployment profiles
 
-**Personal/local:** files, chats, repos, notes, local services, explicit connectors.
+Profiles are examples rather than identities of the project. The same worker/event contracts can be applied to local workspace data, public APIs, on-chain state, simulation fixtures, or other explicitly configured sources.
 
-**Based Nut Hivemind:** Base RPC, wallets, IRIS/data layer, contracts, pools, ecosystem services.
+## Scaling
 
-Both use the same schemas. Scale by replacing synthetic brains with real Cook/Witvliet and MaleCNS engines, SQLite with a larger event store, and the in-process bus with a distributed bus only when measurements justify it.
+The external contracts stay stable while internals improve:
+
+- synthetic Larva → real small-connectome engine
+- synthetic Bee → real larger-connectome engine
+- one state instance → multiple states sharing immutable topology
+- SQLite → larger event/state store
+- in-process routing → distributed event bus if needed
+- local inference → another model host/cluster
+- one process → worker replicas

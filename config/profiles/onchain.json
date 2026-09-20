@@ -1,12 +1,12 @@
 {
-  "id": "basednut",
-  "description": "Based Nut Hivemind for always-on ecosystem state capture and data-layer navigation.",
+  "id": "onchain",
+  "description": "On-chain ecosystem profile for continuous state capture and data navigation.",
   "sources": [
-    "base-rpc",
-    "wallet-read",
+    "rpc",
+    "account-read",
     "contracts",
     "pools",
-    "iris",
+    "domain-data",
     "ecosystem-services"
   ],
   "effectors": [

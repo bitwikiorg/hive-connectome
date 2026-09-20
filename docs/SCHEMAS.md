@@ -1,17 +1,114 @@
 # Canonical Schemas
 
-`EventEnvelope`: id, timestamp, source_id, kind, subject, payload, provenance, tags, freshness_timestamp.
+Schemas live in `src/hive_connectome/schemas.py`.
 
-`NeuralObservation`: brain_id, brain_kind, engine, step, state_vector, metrics.
+## EventEnvelope
 
-`DecisionBundle`: provider, model, answers, confidence, raw.
+```text
+id
+timestamp
+source_id
+kind
+subject
+payload
+provenance
+tags
+freshness_timestamp
+```
 
-`PipelineResult`: run_id, event, worm, fly, decisions, llm, verification, modulation, labels, unresolved.
+Raw evidence is retained. Derived labels never overwrite source evidence.
 
-A Bee Unit combines role, WormLink, FlyCore, Jev head, LLM policy, tools, and permissions.
+## NeuralObservation
 
-A data source is explicit and independently enabled: `http_json | rss | file_drop`, target, interval, enabled, auto_process. Network sources block private/loopback targets.
+```text
+brain_id
+brain_kind
+engine
+step
+state_vector
+metrics
+```
 
-Cron creates events and sends them through the same pipeline.
+Real and synthetic engines use the same outer shape.
 
-Future `ActionProposal` objects contain tool, arguments, risk, reason, approval requirement, and evidence references. A proposal is data, not permission.
+## DecisionBundle
+
+```text
+provider
+model
+answers
+confidence
+raw
+```
+
+Bounded decisions should never require downstream code to parse prose.
+
+## PipelineResult
+
+```text
+run_id
+event
+worm
+fly
+decisions
+llm
+verification
+modulation
+labels
+unresolved
+```
+
+## WorkerSpec
+
+A saved worker is one complete experiment configuration:
+
+```text
+id / name / role
+experiment
+data_environment
+larva
+bee
+jev
+llm
+runtime
+outputs
+```
+
+JEV and LLM are capabilities on the same worker, not separate worker types. Temporary run/eval overrides can toggle them without mutating the saved worker.
+
+## DataSourceSpec
+
+```text
+kind = http_json | rss | file_drop
+endpoint/path
+poll interval
+enabled
+auto_process
+```
+
+Network sources block private/loopback destinations by default.
+
+## CronTaskSpec
+
+```text
+cron
+action
+target
+payload
+enabled
+```
+
+Cron creates events that pass through the same pipeline.
+
+## ActionProposal
+
+```text
+tool
+arguments
+risk
+reason
+requires_approval
+evidence_refs
+```
+
+A proposal is data, not permission.

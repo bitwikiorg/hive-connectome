@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "manual_classifier",
+      "name": "Manual classifier",
+      "description": "Paste/submit one structured event and classify it.",
+      "worker": {
+        "description": "Generic on-demand classifier.",
+        "role": "Classify one event and decide what to do with it.",
+        "experiment": {
+          "kind": "manual",
+          "objective": "Determine whether the input matters and how it should be routed.",
+          "task_prompt": "Classify the supplied event. Separate evidence from inference. Return what changed, relevance, route, and unresolved questions.",
+          "expected_output": "meaningful/novelty/route labels",
+          "eval_metric": "route accuracy + calibration",
+          "notes": ""
+        },
+        "data_environment": {
+          "mode": "manual",
+          "source_ids": [],
+          "poll_interval_seconds": 60,
+          "always_on": false,
+          "browser_extract": "dom",
+          "ocr_enabled": false,
+          "upstream_workers": []
+        },
+        "jev": {
+          "enabled": true,
+          "provider": "venice",
+          "model": "jev-latest",
+          "feedback_to_brain": true,
+          "llm_gate_threshold": 0.65
+        },
+        "llm": {
+          "enabled": false,
+          "provider": "lmstudio",
+          "model": null,
+          "activation": "jev_gate",
+          "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
+          "temperature": 0.2,
+          "verify_with_jev": true
+        },
+        "runtime": {
+          "mode": "on_demand",
+          "interval_seconds": 60,
+          "cron": null,
+          "persist_brain_state": true,
+          "max_events_per_tick": 25,
+          "enabled": false
+        },
+        "outputs": {
+          "save_event": true,
+          "save_run": true,
+          "write_labels": true,
+          "emit_to_hivemind": false,
+          "next_workers": []
+        }
+      }
+    },
+    {
+      "id": "browser_dom_reader",
+      "name": "Browser DOM reader",
+      "description": "Use structured browser text first; OCR stays off.",
+      "worker": {
+        "description": "Classify and extract from browser DOM/accessibility text.",
+        "role": "Read a page structurally and decide whether deeper interpretation is needed.",
+        "experiment": {
+          "kind": "browser_dom",
+          "objective": "Extract useful evidence from a web page without using OCR when the DOM already contains the text.",
+          "task_prompt": "Read the page evidence. Identify the requested facts, preserve source/provenance, and decide whether the page needs deeper semantic analysis.",
+          "expected_output": "evidence fields + relevance + route",
+          "eval_metric": "field accuracy + source fidelity + escalation precision",
+          "notes": "Prefer DOM/accessibility over pixels."
+        },
+        "data_environment": {
+          "mode": "browser_dom",
+          "source_ids": [],
+          "url": "https://example.com",
+          "poll_interval_seconds": 60,
+          "always_on": false,
+          "browser_extract": "accessibility",
+          "ocr_enabled": false,
+          "upstream_workers": []
+        },
+        "jev": {
+          "enabled": true,
+          "provider": "venice",
+          "model": "jev-latest",
+          "feedback_to_brain": true,
+          "llm_gate_threshold": 0.7
+        },
+        "llm": {
+          "enabled": true,
+          "provider": "lmstudio",
+          "model": null,
+          "activation": "jev_gate",
+          "prompt": "Use the extracted DOM/accessibility evidence to answer the experiment question. Do not invent content that is not present.",
+          "temperature": 0.1,
+          "verify_with_jev": true
+        },
+        "runtime": {
+          "mode": "on_demand",
+          "interval_seconds": 60,
+          "cron": null,
+          "persist_brain_state": true,
+          "max_events_per_tick": 10,
+          "enabled": false
+        },
+        "outputs": {
+          "save_event": true,
+          "save_run": true,
+          "write_labels": true,
+          "emit_to_hivemind": false,
+          "next_workers": []
+        }
+      }
+    },
+    {
+      "id": "browser_visual_reader",
+      "name": "Browser visual/OCR reader",
+      "description": "For canvas, screenshots, image-only text, or visual state.",
+      "worker": {
+        "description": "Visual-page experiment with OCR enabled.",
+        "role": "Interpret information that is not available in structured page text.",
+        "experiment": {
+          "kind": "browser_visual",
+          "objective": "Recover useful visual evidence from screenshot/canvas/image content and decide whether LLM interpretation is required.",
+          "task_prompt": "Use OCR/visual extraction only for information absent from structured page text. Preserve OCR uncertainty and source coordinates when available.",
+          "expected_output": "OCR evidence + visual labels + route",
+          "eval_metric": "OCR field accuracy + visual classification + escalation precision",
+          "notes": "This is intentionally separate from DOM browsing."
+        },
+        "data_environment": {
+          "mode": "browser_visual",
+          "source_ids": [],
+          "url": "https://example.com",
+          "poll_interval_seconds": 60,
+          "always_on": false,
+          "browser_extract": "mixed",
+          "ocr_enabled": true,
+          "upstream_workers": []
+        },
+        "jev": {
+          "enabled": true,
+          "provider": "venice",
+          "model": "jev-latest",
+          "feedback_to_brain": true,
+          "llm_gate_threshold": 0.7
+        },
+        "llm": {
+          "enabled": true,
+          "provider": "lmstudio",
+          "model": null,
+          "activation": "jev_gate",
+          "prompt": "Interpret only the visual/OCR evidence supplied. Report uncertain text explicitly.",
+          "temperature": 0.1,
+          "verify_with_jev": true
+        },
+        "runtime": {
+          "mode": "on_demand",
+          "interval_seconds": 60,
+          "cron": null,
+          "persist_brain_state": true,
+          "max_events_per_tick": 10,
+          "enabled": false
+        },
+        "outputs": {
+          "save_event": true,
+          "save_run": true,
+          "write_labels": true,
+          "emit_to_hivemind": false,
+          "next_workers": []
+        }
+      }
+    },
+    {
+      "id": "stream_watch",
+      "name": "Always-on stream watcher",
+      "description": "Daemon worker over one or more configured sources.",
+      "worker": {
+        "description": "Continuous classifier over real data sources.",
+        "role": "Track changes, regimes, anomalies, and relevance over time.",
+        "experiment": {
+          "kind": "stream_classifier",
+          "objective": "Detect meaningful state changes in a continuous event stream.",
+          "task_prompt": "Compare this event against the worker's recurrent state. Identify regime change, anomaly, novelty, and whether the event deserves deeper analysis.",
+          "expected_output": "state-change/anomaly/relevance labels",
+          "eval_metric": "precision/recall on labeled changes + latency + false positive rate",
+          "notes": ""
+        },
+        "data_environment": {
+          "mode": "source_ids",
+          "source_ids": [
+            "base-head"
+          ],
+          "poll_interval_seconds": 15,
+          "always_on": true,
+          "browser_extract": "dom",
+          "ocr_enabled": false,
+          "upstream_workers": []
+        },
+        "jev": {
+          "enabled": true,
+          "provider": "venice",
+          "model": "jev-latest",
+          "feedback_to_brain": true,
+          "llm_gate_threshold": 0.7
+        },
+        "llm": {
+          "enabled": false,
+          "provider": "lmstudio",
+          "model": null,
+          "activation": "jev_gate",
+          "prompt": "Explain only high-value anomalies or unresolved transitions.",
+          "temperature": 0.2,
+          "verify_with_jev": true
+        },
+        "runtime": {
+          "mode": "daemon",
+          "interval_seconds": 15,
+          "cron": null,
+          "persist_brain_state": true,
+          "max_events_per_tick": 100,
+          "enabled": false
+        },
+        "outputs": {
+          "save_event": true,
+          "save_run": true,
+          "write_labels": true,
+          "emit_to_hivemind": false,
+          "next_workers": []
+        }
+      }
+    },
+    {
+      "id": "local_files_memory",
+      "name": "Local files / chat memory",
+      "description": "Ingest selected local exports into structured memory.",
+      "worker": {
+        "description": "Local knowledge-ingestion experiment.",
+        "role": "Turn local evidence into project/entity/state memory.",
+        "experiment": {
+          "kind": "local_files",
+          "objective": "Identify projects, entities, decisions, unresolved tasks, and state changes in local data.",
+          "task_prompt": "Extract only evidence-supported project state, decisions, entities, links, and unresolved tasks. Preserve provenance to the local source.",
+          "expected_output": "entities + project state + unresolved tasks",
+          "eval_metric": "entity precision + state-change accuracy + retrieval usefulness",
+          "notes": "Per-source opt-in only."
+        },
+        "data_environment": {
+          "mode": "file_drop",
+          "source_ids": [],
+          "file_path": "/data/inbox",
+          "poll_interval_seconds": 10,
+          "always_on": true,
+          "browser_extract": "dom",
+          "ocr_enabled": false,
+          "upstream_workers": []
+        },
+        "jev": {
+          "enabled": true,
+          "provider": "venice",
+          "model": "jev-latest",
+          "feedback_to_brain": true,
+          "llm_gate_threshold": 0.7
+        },
+        "llm": {
+          "enabled": true,
+          "provider": "lmstudio",
+          "model": null,
+          "activation": "jev_gate",
+          "prompt": "Extract project/entity/state information from the local evidence. Do not infer private facts beyond the supplied source.",
+          "temperature": 0.1,
+          "verify_with_jev": true
+        },
+        "runtime": {
+          "mode": "daemon",
+          "interval_seconds": 10,
+          "cron": null,
+          "persist_brain_state": true,
+          "max_events_per_tick": 25,
+          "enabled": false
+        },
+        "outputs": {
+          "save_event": true,
+          "save_run": true,
+          "write_labels": true,
+          "emit_to_hivemind": false,
+          "next_workers": []
+        }
+      }
+    }
+  ]
+}

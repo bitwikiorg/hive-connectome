@@ -4,10 +4,13 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any, Literal
 from uuid import uuid4
+
 from pydantic import BaseModel, Field, model_validator
+
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
 
 class BrainKind(StrEnum):
     WORM_LINK = "worm_link"
@@ -15,10 +18,12 @@ class BrainKind(StrEnum):
     LARVAL_MB = "larval_mb"
     SYNTHETIC = "synthetic"
 
+
 class DecisionType(StrEnum):
     NOUL = "noul"
     CHOICE = "choice"
     SCORE = "score"
+
 
 class EventEnvelope(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
@@ -31,6 +36,7 @@ class EventEnvelope(BaseModel):
     tags: list[str] = Field(default_factory=list)
     freshness_timestamp: datetime | None = None
 
+
 class NeuralObservation(BaseModel):
     brain_id: str
     brain_kind: BrainKind
@@ -39,10 +45,12 @@ class NeuralObservation(BaseModel):
     state_vector: list[float]
     metrics: dict[str, float]
 
+
 class JevQuestion(BaseModel):
     type: DecisionType
     instructions: str
     criteria: dict[str, str | None] | list[str] | None = None
+
 
 class DecisionBundle(BaseModel):
     provider: str
@@ -51,16 +59,22 @@ class DecisionBundle(BaseModel):
     confidence: float | None = None
     raw: dict[str, Any] = Field(default_factory=dict)
 
+
 class LLMResult(BaseModel):
     provider: str
     model: str | None = None
     text: str
     raw: dict[str, Any] = Field(default_factory=dict)
 
+
 class PipelineRequest(BaseModel):
     event: EventEnvelope
+    worker_id: str = "scout"
+    jev_enabled: bool | None = None
+    llm_enabled: bool | None = None
     mode: Literal["auto", "offline", "live"] = "auto"
     force_llm: bool = False
+
 
 class PipelineResult(BaseModel):
     run_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -74,6 +88,7 @@ class PipelineResult(BaseModel):
     labels: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
 
+
 class BrainStageSpec(BaseModel):
     id: str
     kind: BrainKind
@@ -85,6 +100,7 @@ class BrainStageSpec(BaseModel):
     output_name: str | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
+
 class BeeUnitSpec(BaseModel):
     id: str
     role: str
@@ -94,12 +110,14 @@ class BeeUnitSpec(BaseModel):
     tools: list[str] = Field(default_factory=list)
     permissions: list[str] = Field(default_factory=lambda: ["read"])
 
+
 class HivemindSpec(BaseModel):
     name: str = "HIVE"
     shared_memory: str = "comb"
     bus: str = "waggle"
     bee_units: list[BeeUnitSpec]
     default_chain: list[str] = Field(default_factory=list)
+
 
 class DataSourceSpec(BaseModel):
     id: str
@@ -121,6 +139,7 @@ class DataSourceSpec(BaseModel):
             raise ValueError("file_drop requires path")
         return self
 
+
 class CronTaskSpec(BaseModel):
     id: str
     name: str
@@ -130,11 +149,19 @@ class CronTaskSpec(BaseModel):
     payload: Any | None = None
     enabled: bool = True
 
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.action == "poll_source" and not self.target_id:
+            raise ValueError("poll_source requires target_id")
+        return self
+
+
 class SimulationSpec(BaseModel):
     name: str = "simulation"
     events: list[EventEnvelope]
     mode: Literal["offline", "live"] = "offline"
     reset_brains: bool = True
+
 
 class ActionProposal(BaseModel):
     tool: str

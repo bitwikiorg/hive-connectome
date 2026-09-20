@@ -1,9 +1,9 @@
 {
-  "id": "local",
-  "description": "Private personal Hivemind. Local-first data and inference; explicit source opt-in.",
+  "id": "workspace",
+  "description": "Local-first workspace profile with explicit source opt-in.",
   "sources": [
     "local-inbox",
-    "chat-export",
+    "conversation-export",
     "repo-index",
     "notes"
   ],

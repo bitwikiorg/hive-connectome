@@ -1,0 +1,293 @@
+{
+  "version": 2,
+  "workers": [
+    {
+      "id": "scout",
+      "name": "Scout",
+      "larva": {
+        "engine": "synthetic",
+        "state_size": 16,
+        "substrate": "c_elegans",
+        "config": {}
+      },
+      "bee": {
+        "engine": "synthetic",
+        "state_size": 64,
+        "substrate": "drosophila",
+        "config": {}
+      },
+      "description": "Generic on-demand classifier.",
+      "role": "Classify one event and decide what to do with it.",
+      "experiment": {
+        "kind": "manual",
+        "objective": "Determine whether the input matters and how it should be routed.",
+        "task_prompt": "Classify the supplied event. Separate evidence from inference. Return what changed, relevance, route, and unresolved questions.",
+        "expected_output": "meaningful/novelty/route labels",
+        "eval_metric": "route accuracy + calibration",
+        "notes": ""
+      },
+      "data_environment": {
+        "mode": "manual",
+        "source_ids": [],
+        "poll_interval_seconds": 60,
+        "always_on": false,
+        "browser_extract": "dom",
+        "ocr_enabled": false,
+        "upstream_workers": []
+      },
+      "jev": {
+        "enabled": true,
+        "provider": "venice",
+        "model": "jev-latest",
+        "feedback_to_brain": true,
+        "questions": {
+          "meaningful_signal": {
+            "type": "noul",
+            "instructions": "Is this event materially meaningful to this experiment?"
+          },
+          "novelty": {
+            "type": "score",
+            "instructions": "How novel is this event relative to the worker's recurrent state?",
+            "criteria": [
+              "routine",
+              "notable",
+              "highly novel"
+            ]
+          },
+          "route": {
+            "type": "choice",
+            "instructions": "What should this worker do next?",
+            "criteria": {
+              "store": "store evidence",
+              "inspect": "inspect deeper",
+              "escalate": "requires open-ended reasoning",
+              "ignore": "no useful change"
+            }
+          },
+          "llm_needed": {
+            "type": "noul",
+            "instructions": "Does this experiment need open-ended language reasoning for this event?"
+          }
+        },
+        "llm_gate_threshold": 0.65
+      },
+      "llm": {
+        "enabled": false,
+        "provider": "lmstudio",
+        "model": null,
+        "activation": "jev_gate",
+        "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
+        "temperature": 0.2,
+        "verify_with_jev": true
+      },
+      "runtime": {
+        "mode": "on_demand",
+        "interval_seconds": 60,
+        "cron": null,
+        "persist_brain_state": true,
+        "max_events_per_tick": 25,
+        "enabled": false
+      },
+      "outputs": {
+        "save_event": true,
+        "save_run": true,
+        "write_labels": true,
+        "emit_to_hivemind": false,
+        "next_workers": []
+      }
+    },
+    {
+      "id": "browser",
+      "name": "Browser",
+      "larva": {
+        "engine": "synthetic",
+        "state_size": 16,
+        "substrate": "c_elegans",
+        "config": {}
+      },
+      "bee": {
+        "engine": "synthetic",
+        "state_size": 64,
+        "substrate": "drosophila",
+        "config": {}
+      },
+      "description": "Classify and extract from browser DOM/accessibility text.",
+      "role": "Read a page structurally and decide whether deeper interpretation is needed.",
+      "experiment": {
+        "kind": "browser_dom",
+        "objective": "Extract useful evidence from a web page without using OCR when the DOM already contains the text.",
+        "task_prompt": "Read the page evidence. Identify the requested facts, preserve source/provenance, and decide whether the page needs deeper semantic analysis.",
+        "expected_output": "evidence fields + relevance + route",
+        "eval_metric": "field accuracy + source fidelity + escalation precision",
+        "notes": "Prefer DOM/accessibility over pixels."
+      },
+      "data_environment": {
+        "mode": "browser_dom",
+        "source_ids": [],
+        "url": "https://example.com",
+        "poll_interval_seconds": 60,
+        "always_on": false,
+        "browser_extract": "accessibility",
+        "ocr_enabled": false,
+        "upstream_workers": []
+      },
+      "jev": {
+        "enabled": true,
+        "provider": "venice",
+        "model": "jev-latest",
+        "feedback_to_brain": true,
+        "questions": {
+          "meaningful_signal": {
+            "type": "noul",
+            "instructions": "Is this event materially meaningful to this experiment?"
+          },
+          "novelty": {
+            "type": "score",
+            "instructions": "How novel is this event relative to the worker's recurrent state?",
+            "criteria": [
+              "routine",
+              "notable",
+              "highly novel"
+            ]
+          },
+          "route": {
+            "type": "choice",
+            "instructions": "What should this worker do next?",
+            "criteria": {
+              "store": "store evidence",
+              "inspect": "inspect deeper",
+              "escalate": "requires open-ended reasoning",
+              "ignore": "no useful change"
+            }
+          },
+          "llm_needed": {
+            "type": "noul",
+            "instructions": "Does this experiment need open-ended language reasoning for this event?"
+          }
+        },
+        "llm_gate_threshold": 0.7
+      },
+      "llm": {
+        "enabled": true,
+        "provider": "lmstudio",
+        "model": null,
+        "activation": "jev_gate",
+        "prompt": "Use the extracted DOM/accessibility evidence to answer the experiment question. Do not invent content that is not present.",
+        "temperature": 0.1,
+        "verify_with_jev": true
+      },
+      "runtime": {
+        "mode": "on_demand",
+        "interval_seconds": 60,
+        "cron": null,
+        "persist_brain_state": true,
+        "max_events_per_tick": 10,
+        "enabled": false
+      },
+      "outputs": {
+        "save_event": true,
+        "save_run": true,
+        "write_labels": true,
+        "emit_to_hivemind": false,
+        "next_workers": []
+      }
+    },
+    {
+      "id": "stream",
+      "name": "Stream Watcher",
+      "larva": {
+        "engine": "synthetic",
+        "state_size": 16,
+        "substrate": "c_elegans",
+        "config": {}
+      },
+      "bee": {
+        "engine": "synthetic",
+        "state_size": 64,
+        "substrate": "drosophila",
+        "config": {}
+      },
+      "description": "Continuous classifier over real data sources.",
+      "role": "Track changes, regimes, anomalies, and relevance over time.",
+      "experiment": {
+        "kind": "stream_classifier",
+        "objective": "Detect meaningful state changes in a continuous event stream.",
+        "task_prompt": "Compare this event against the worker's recurrent state. Identify regime change, anomaly, novelty, and whether the event deserves deeper analysis.",
+        "expected_output": "state-change/anomaly/relevance labels",
+        "eval_metric": "precision/recall on labeled changes + latency + false positive rate",
+        "notes": ""
+      },
+      "data_environment": {
+        "mode": "source_ids",
+        "source_ids": [
+          "base-head"
+        ],
+        "poll_interval_seconds": 15,
+        "always_on": true,
+        "browser_extract": "dom",
+        "ocr_enabled": false,
+        "upstream_workers": []
+      },
+      "jev": {
+        "enabled": true,
+        "provider": "venice",
+        "model": "jev-latest",
+        "feedback_to_brain": true,
+        "questions": {
+          "meaningful_signal": {
+            "type": "noul",
+            "instructions": "Is this event materially meaningful to this experiment?"
+          },
+          "novelty": {
+            "type": "score",
+            "instructions": "How novel is this event relative to the worker's recurrent state?",
+            "criteria": [
+              "routine",
+              "notable",
+              "highly novel"
+            ]
+          },
+          "route": {
+            "type": "choice",
+            "instructions": "What should this worker do next?",
+            "criteria": {
+              "store": "store evidence",
+              "inspect": "inspect deeper",
+              "escalate": "requires open-ended reasoning",
+              "ignore": "no useful change"
+            }
+          },
+          "llm_needed": {
+            "type": "noul",
+            "instructions": "Does this experiment need open-ended language reasoning for this event?"
+          }
+        },
+        "llm_gate_threshold": 0.7
+      },
+      "llm": {
+        "enabled": false,
+        "provider": "lmstudio",
+        "model": null,
+        "activation": "jev_gate",
+        "prompt": "Explain only high-value anomalies or unresolved transitions.",
+        "temperature": 0.2,
+        "verify_with_jev": true
+      },
+      "runtime": {
+        "mode": "daemon",
+        "interval_seconds": 15,
+        "cron": null,
+        "persist_brain_state": true,
+        "max_events_per_tick": 100,
+        "enabled": false
+      },
+      "outputs": {
+        "save_event": true,
+        "save_run": true,
+        "write_labels": true,
+        "emit_to_hivemind": false,
+        "next_workers": []
+      }
+    }
+  ]
+}

@@ -3,34 +3,225 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>HIVE Connectome</title>
+  <title>HIVE Connectome Lab</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
-  <div><h1>HIVE <span>CONNECTOME</span></h1><p>always-on mini-brains · Jev · local AI · MCP</p></div>
+  <div>
+    <h1>HIVE <span>CONNECTOME LAB</span></h1>
+    <p>one worker = one complete experiment</p>
+  </div>
   <div id="health" class="pill">loading</div>
 </header>
+
 <main>
   <section class="hero card">
-    <div class="flow"><b>DATA</b><i>→</i><b>WormLink</b><i>→</i><b>FlyCore</b><i>→</i><b>JEV</b><i>→</i><b>LLM?</b><i>→</i><b>COMB</b></div>
-    <p>Neural state stays active. Jev handles bounded decisions. The LLM enters only when open-ended reasoning is justified.</p>
+    <div class="flow"><b>DATA ENV</b><i>→</i><b>Larvaᵢ</b><i>→</i><b>Beeᵢ</b><i>→</i><b>JEV?</b><i>→</i><b>LLM?</b><i>→</i><b>OUTPUT</b></div>
+    <p>Pick a worker, toggle JEV and LLM, keep every other experiment setting fixed, and compare results.</p>
   </section>
-  <section class="grid">
-    <div class="card"><h2>Providers</h2><button onclick="loadProviders()">Test providers</button><pre id="providers">not tested</pre></div>
-    <div class="card">
-      <h2>Pipeline test</h2>
-      <textarea id="payload">{"signal":"honey","value":1,"note":"test event"}</textarea>
-      <div class="row"><button onclick="runPipeline(false)">Run</button><button class="secondary" onclick="runPipeline(true)">Force LLM</button><button class="ghost" onclick="resetPipeline()">Reset brains</button></div>
-      <pre id="pipeline">ready</pre>
+
+  <section class="layout">
+    <aside class="card sidebar">
+      <h2>Workers</h2>
+      <select id="workerSelect" size="8" onchange="loadWorkerForm()"></select>
+
+      <h3>Create</h3>
+      <select id="templateSelect"></select>
+      <input id="newWorkerId" placeholder="worker-id">
+      <input id="newWorkerName" placeholder="Worker name">
+      <button onclick="createWorker()">Create from template</button>
+
+      <h3>Duplicate</h3>
+      <input id="cloneWorkerId" placeholder="copy-id">
+      <button class="secondary" onclick="cloneWorker()">Clone selected</button>
+
+      <button class="danger" onclick="deleteWorker()">Delete selected</button>
+    </aside>
+
+    <div>
+      <section class="card">
+        <div class="title-row">
+          <div>
+            <h2>Worker experiment</h2>
+            <div class="meta" id="workerIdLabel"></div>
+          </div>
+          <button onclick="saveWorker()">Save all settings</button>
+        </div>
+
+        <div class="togglebar">
+          <label class="toggle"><input type="checkbox" id="jevEnabled"> <b>JEV</b></label>
+          <label class="toggle"><input type="checkbox" id="llmEnabled"> <b>LLM</b></label>
+          <span class="meta">These are worker settings. Run-time overrides below do not alter the saved worker.</span>
+        </div>
+
+        <div class="formgrid">
+          <label>Name<input id="workerName"></label>
+          <label>Role<input id="workerRole"></label>
+        </div>
+        <label>Description<textarea id="workerDescription"></textarea></label>
+      </section>
+
+      <section class="card">
+        <h2>Experiment</h2>
+        <div class="formgrid">
+          <label>Experiment kind<select id="experimentKind">
+            <option>manual</option>
+            <option>stream_classifier</option>
+            <option>browser_dom</option>
+            <option>browser_visual</option>
+            <option>local_files</option>
+            <option>simulation</option>
+            <option>hivemind_chain</option>
+          </select></label>
+          <label>Eval metric<input id="evalMetric"></label>
+        </div>
+        <label>Objective<textarea id="experimentObjective"></textarea></label>
+        <label>Task prompt<textarea id="taskPrompt" class="large"></textarea></label>
+        <label>Expected output<input id="expectedOutput"></label>
+        <label>Notes<textarea id="experimentNotes"></textarea></label>
+      </section>
+
+      <section class="card">
+        <h2>Data environment</h2>
+        <div class="formgrid">
+          <label>Mode<select id="dataMode" onchange="renderDataEnvironment()">
+            <option>manual</option>
+            <option>source_ids</option>
+            <option>browser_dom</option>
+            <option>browser_visual</option>
+            <option>file_drop</option>
+            <option>simulation</option>
+            <option>worker_output</option>
+          </select></label>
+          <label>Poll interval (sec)<input id="pollInterval" type="number" min="5"></label>
+        </div>
+
+        <div id="envSources" class="env-panel">
+          <label>Source IDs (comma-separated)<input id="sourceIds"></label>
+        </div>
+        <div id="envBrowser" class="env-panel">
+          <label>URL<input id="browserUrl"></label>
+          <div class="formgrid">
+            <label>Extraction<select id="browserExtract">
+              <option>dom</option><option>accessibility</option><option>screenshot</option><option>ocr</option><option>mixed</option>
+            </select></label>
+            <label class="checkbox"><input id="ocrEnabled" type="checkbox"> OCR enabled</label>
+          </div>
+        </div>
+        <div id="envFiles" class="env-panel">
+          <label>File inbox path<input id="filePath"></label>
+        </div>
+        <div id="envWorkers" class="env-panel">
+          <label>Upstream workers (comma-separated)<input id="upstreamWorkers"></label>
+        </div>
+        <label class="checkbox"><input id="alwaysOn" type="checkbox"> Always on</label>
+
+        <button class="secondary" onclick="runEnvironment()">Run/test this environment once</button>
+        <pre id="environmentResult">not run</pre>
+      </section>
+
+      <section class="card">
+        <h2>Mini-brain pair</h2>
+        <div class="pairgrid">
+          <div>
+            <h3>Larva</h3>
+            <label>Engine<input id="larvaEngine"></label>
+            <label>Substrate<input id="larvaSubstrate"></label>
+            <label>State size<input id="larvaSize" type="number"></label>
+            <label>Config JSON<textarea id="larvaConfig" class="codearea"></textarea></label>
+          </div>
+          <div>
+            <h3>Bee</h3>
+            <label>Engine<input id="beeEngine"></label>
+            <label>Substrate<input id="beeSubstrate"></label>
+            <label>State size<input id="beeSize" type="number"></label>
+            <label>Config JSON<textarea id="beeConfig" class="codearea"></textarea></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>JEV settings</h2>
+          <label>Model<input id="jevModel"></label>
+          <label>LLM gate threshold (JEV Noul probability)<input id="jevThreshold" type="number" min="0" max="1" step="0.01"></label>
+          <label class="checkbox"><input id="jevFeedback" type="checkbox"> Feed decision modulation back to mini-brain state</label>
+          <label>Questions JSON<textarea id="jevQuestions" class="large codearea"></textarea></label>
+        </div>
+
+        <div class="card">
+          <h2>LLM settings</h2>
+          <div class="formgrid">
+            <label>Provider<select id="llmProvider"><option>lmstudio</option><option>venice</option></select></label>
+            <label>Model<input id="llmModel" placeholder="blank = global default"></label>
+          </div>
+          <label>Activation<select id="llmActivation">
+            <option>jev_gate</option><option>always</option><option>manual</option>
+          </select></label>
+          <label>Temperature<input id="llmTemperature" type="number" min="0" max="2" step="0.1"></label>
+          <label class="checkbox"><input id="verifyWithJev" type="checkbox"> Verify LLM output with JEV</label>
+          <label>LLM prompt<textarea id="llmPrompt" class="large"></textarea></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Runtime + outputs</h2>
+        <label class="checkbox"><input id="runtimeEnabled" type="checkbox"> Enable automatic worker runtime</label>
+        <div class="formgrid">
+          <label>Runtime<select id="runtimeMode"><option>on_demand</option><option>daemon</option><option>cron</option></select></label>
+          <label>Interval sec<input id="runtimeInterval" type="number" min="5"></label>
+          <label>Cron<input id="runtimeCron" placeholder="optional"></label>
+          <label>Max events/tick<input id="maxEvents" type="number"></label>
+        </div>
+        <div class="togglebar">
+          <label class="checkbox"><input id="persistBrain" type="checkbox"> Persist brain state</label>
+          <label class="checkbox"><input id="saveEvent" type="checkbox"> Save events</label>
+          <label class="checkbox"><input id="saveRun" type="checkbox"> Save runs</label>
+          <label class="checkbox"><input id="writeLabels" type="checkbox"> Write labels</label>
+          <label class="checkbox planned"><input id="emitHivemind" type="checkbox" disabled> Emit to worker bus <span class="meta">(planned)</span></label>
+        </div>
+        <label class="planned">Next workers (planned)<input id="nextWorkers" disabled></label>
+      </section>
+
+      <section class="card run-card">
+        <h2>Experiment runner</h2>
+        <p class="meta">Temporary toggles let you test the same saved worker without mutating its configuration.</p>
+        <div class="togglebar">
+          <label class="toggle"><input type="checkbox" id="runJev"> JEV this run</label>
+          <label class="toggle"><input type="checkbox" id="runLlm"> LLM this run</label>
+        </div>
+        <label id="inputLabel">Experiment input (JSON)<textarea id="runPayload" class="large">{"signal":"test","value":1}</textarea></label>
+        <div class="row">
+          <button onclick="runWorker()">Run selected worker</button>
+          <button class="secondary" onclick="resetWorker()">Reset Larva+Bee state</button>
+        </div>
+        <pre id="runResult">ready</pre>
+      </section>
+
+      <section class="card">
+        <h2>Toggle matrix eval</h2>
+        <p>Same worker, same data, same prompts and brain settings. Only JEV/LLM toggles change.</p>
+        <label>Expected route (optional)<select id="expectedRoute">
+          <option value="">none</option><option>store</option><option>inspect</option><option>escalate</option><option>ignore</option>
+        </select></label>
+        <button onclick="runEval()">Run 4 combinations</button>
+        <pre id="evalResult">ready</pre>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Provider health</h2>
+          <button class="secondary" onclick="loadProviders()">Test Venice + LM Studio</button>
+          <pre id="providers">not tested</pre>
+        </div>
+        <div class="card">
+          <h2>Connectomes</h2>
+          <div id="connectomes"></div>
+        </div>
+      </section>
     </div>
   </section>
-  <section class="card"><h2>Connectome packs</h2><p>Only pinned, checksum-verified manifests can be downloaded. Downloaded data is never executed.</p><div id="connectomes"></div></section>
-  <section class="grid">
-    <div class="card"><h2>Always-on sources</h2><div id="sources"></div></div>
-    <div class="card"><h2>Recent events</h2><button class="secondary" onclick="loadEvents()">Refresh</button><pre id="events">none</pre></div>
-  </section>
-  <section class="card"><h2>MCP</h2><p><code>http://127.0.0.1:8090/mcp</code></p><p><code>hive_status</code> · <code>hive_recent_events</code> · <code>hive_ingest</code> · <code>hive_simulate</code></p></section>
 </main>
 <script src="/static/app.js"></script>
 </body>

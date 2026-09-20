@@ -12,4 +12,4 @@ COPY config ./config
 RUN pip install --no-cache-dir .
 
 EXPOSE 8080 8000
-CMD ["uvicorn", "hive_connectome.app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "hive_connectome.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080"]
