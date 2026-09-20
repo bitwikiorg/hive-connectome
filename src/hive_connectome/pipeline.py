@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from hive_connectome.brains.base import MiniBrain
 from hive_connectome.brains.connectome import CookConnectomeBrain, MaleCNSLocomotorBrain
+from hive_connectome.brains.malecns_full import MaleCNSFullBrain
 from hive_connectome.brains.synthetic import DeterministicMiniBrain
 from hive_connectome.db import HiveDB
 from hive_connectome.experiment_contract import experiment_readiness, load_experiment_contract
@@ -44,7 +45,7 @@ def brain_readout(observations: dict[str, NeuralObservation]) -> DecisionBundle:
                 "llm_needed": {"type": "noul", "noul": 0.5},
             },
         )
-    last = next(reversed(observations.values()))
+    last = list(observations.values())[-1]
     novelty = min(2.0, float(last.metrics.get("novelty", 0.0)) * 20.0)
     meaningful = min(0.98, 0.35 + float(last.metrics.get("energy", 0.0)) * 2.5)
     route = "inspect" if novelty > 0.5 else "store"
@@ -91,9 +92,31 @@ class HivePipeline:
             return DeterministicMiniBrain(brain_id, stage.kind, size)
 
         pack_id = stage.config.get("pack_id") or stage.connectome_pack
+        if not pack_id:
+            raise ValueError(f"{stage.id} connectome engine requires config.pack_id or connectome_pack")
+
+        if stage.engine == "malecns_full_v1":
+            raw_root = self.data_dir / "connectomes" / str(pack_id)
+            compiled_root = self.data_dir / "compiled" / str(pack_id)
+            return MaleCNSFullBrain(
+                brain_id,
+                raw_root,
+                compiled_root,
+                expected_neurons=int(stage.config.get("expected_neurons", 166700)),
+                expected_directed_edges=int(stage.config.get("expected_directed_connections", 25582938)),
+                expected_synaptic_contacts=int(stage.config.get("expected_synapses", 124177617)),
+                dt=float(stage.config.get("dt", 0.020)),
+                tau=float(stage.config.get("tau", 0.100)),
+                gain=float(stage.config.get("gain", 3.0)),
+                tonic=float(stage.config.get("tonic", 0.14)),
+                threshold=float(stage.config.get("threshold", 1.0)),
+                substeps=int(stage.config.get("substeps", 5)),
+                sample_size=int(stage.config.get("sample_size", 2048)),
+            )
+
         filename = stage.config.get("file")
-        if not pack_id or not filename:
-            raise ValueError(f"{stage.id} connectome engine requires config.pack_id and config.file")
+        if not filename:
+            raise ValueError(f"{stage.id} connectome engine requires config.file")
         path = self.data_dir / "connectomes" / str(pack_id) / str(filename)
 
         if stage.engine == "cook2019_connectome":
@@ -238,6 +261,19 @@ class HivePipeline:
             if stage.engine == "synthetic":
                 return {"id": stage.id, "engine": stage.engine, "real_connectome_topology": False, "installed": True}
             pack_id = stage.config.get("pack_id") or stage.connectome_pack
+            if stage.engine == "malecns_full_v1":
+                root = self.data_dir / "connectomes" / str(pack_id)
+                required = ["annotations.feather", "neurotransmitters.feather", "edges.feather"]
+                present = {name: (root / name).exists() for name in required}
+                return {
+                    "id": stage.id,
+                    "engine": stage.engine,
+                    "real_connectome_topology": True,
+                    "full_connectome": True,
+                    "installed": all(present.values()),
+                    "pack_id": pack_id,
+                    "files": present,
+                }
             filename = stage.config.get("file")
             path = self.data_dir / "connectomes" / str(pack_id) / str(filename)
             return {
@@ -268,7 +304,7 @@ class HivePipeline:
             primary = experiment_readiness(
                 contract,
                 data_dir=self.data_dir,
-                supported_engines={"synthetic", "cook2019_connectome", "malecns_locomotor"},
+                supported_engines={"synthetic", "cook2019_connectome", "malecns_locomotor", "malecns_full_v1"},
             )
         else:
             primary = {
@@ -314,6 +350,46 @@ class HivePipeline:
         receipt = getattr(exc, "receipt", None)
         if receipt:
             self._store_transport(run_id, stage_id, receipt)
+
+    def _record_stage_execution(self, run_id: str, worker: WorkerSpec, stage: BrainStageSpec, observation: NeuralObservation) -> None:
+        if not observation.metadata.get("real_connectome_topology"):
+            return
+        pack_id = stage.config.get("pack_id") or stage.connectome_pack
+        receipt_dir = self.data_dir / "execution_receipts"
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        receipt = {
+            "receipt_version": 1,
+            "run_id": run_id,
+            "core_id": worker.id,
+            "stage_id": stage.id,
+            "requested_engine": stage.engine,
+            "observed_engine": observation.engine,
+            "pack_id": pack_id,
+            "step": observation.step,
+            "node_count": observation.metadata.get("node_count"),
+            "edge_count": observation.metadata.get("edge_count"),
+            "synaptic_contacts": observation.metadata.get("synaptic_contacts"),
+            "full_connectome": bool(observation.metadata.get("full_connectome")),
+            "state_hash": observation.metadata.get("state_hash"),
+            "metadata": observation.metadata,
+        }
+        target = receipt_dir / f"{stage.engine}--{pack_id}.json"
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(json.dumps(receipt, indent=2, default=str), encoding="utf-8")
+        tmp.replace(target)
+
+    def _record_full_state(self, run_id: str, stage: BrainStageSpec, engine: MiniBrain, observation: NeuralObservation) -> None:
+        exporter = getattr(engine, "export_state", None)
+        if not callable(exporter):
+            return
+        import numpy as np
+        root = self.data_dir / "recordings" / run_id
+        root.mkdir(parents=True, exist_ok=True)
+        target = root / f"{stage.id}.npz"
+        arrays = exporter()
+        np.savez_compressed(target, **arrays)
+        observation.metadata["recording_artifact"] = str(target.relative_to(self.data_dir))
+        observation.metadata["recording_bytes"] = target.stat().st_size
 
     async def run(self, req: PipelineRequest) -> PipelineResult:
         run_id = str(uuid4())
@@ -364,7 +440,11 @@ class HivePipeline:
                 }
                 if merged_drives:
                     payload["__hive_stimulus__"] = [[idx, amp] for idx, amp in sorted(merged_drives.items())]
-            observations[stage.id] = engine.step(payload)
+            observation = engine.step(payload)
+            if worker.outputs.recording_level == "full":
+                self._record_full_state(run_id, stage, engine, observation)
+            self._record_stage_execution(run_id, worker, stage, observation)
+            observations[stage.id] = observation
 
         worm = next((obs for obs in observations.values() if obs.brain_kind == BrainKind.WORM_LINK), None)
         fly = next((obs for obs in observations.values() if obs.brain_kind == BrainKind.FLY_CORE), None)
@@ -528,10 +608,12 @@ class HivePipeline:
             if receipt.get("call_id")
         ]
         uses_control_fly = any(stage.engine == "malecns_locomotor" for stage in worker.brain_chain if stage.enabled)
+        uses_full_fly = any(stage.engine == "malecns_full_v1" for stage in worker.brain_chain if stage.enabled)
+        uses_full_worm = any(stage.engine == "cook2019_connectome" for stage in worker.brain_chain if stage.enabled)
 
         execution: dict[str, Any] = {
-            "study_role": "control_only" if uses_control_fly else "experimental",
-            "primary_experiment": False,
+            "study_role": "primary_candidate" if uses_full_fly and uses_full_worm else ("control_only" if uses_control_fly else "experimental"),
+            "primary_experiment": bool(uses_full_fly and uses_full_worm),
             "core_id": worker.id,
             "stages": stage_execution,
             "bridges": bridge_trace,
