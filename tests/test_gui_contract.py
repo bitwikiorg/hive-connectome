@@ -27,4 +27,5 @@ def test_gui_human_first_controls_and_api_targets_present():
         assert route in JS
     assert "Install verified pack" in JS
     assert "Real connectome topology executed" in JS
-    assert "Jev LIVE:" in JS\n    assert "state projection" in JS
+    assert "Jev LIVE:" in JS
+    assert "state projection" in JS
