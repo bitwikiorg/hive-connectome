@@ -1,28 +1,122 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HIVE Connectome</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><header><div><h1>HIVE <span>CONNECTOME</span></h1><p>decision + memory experiment lab</p></div><div id="health" class="pill">loading</div></header>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HIVE Connectome</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div><h1>HIVE <span>CONNECTOME</span></h1><p>composable connectome experiment lab</p></div>
+  <div id="health" class="pill">loading</div>
+</header>
 <main>
-<section class="hero card"><div class="eyebrow">WHAT IS ACTUALLY RUNNING?</div><h2>Primary study: full Cook C. elegans → full MaleCNS. v0.6 is not ready yet.</h2><p class="lede">The primary Bee substrate is the <b>full MaleCNS v1.0 graph</b>. The currently runnable 1,045-neuron locomotor graph is only a development/control path. It does not satisfy the primary experiment.</p>
-<div class="status-grid"><div class="status-box"><span>Neural backend</span><strong id="brainRuntime">checking…</strong></div><div class="status-box"><span>Primary experiment</span><strong id="realBrainStatus">checking…</strong></div><div class="status-box"><span>Venice / Jev</span><strong id="jevStatus">checking…</strong></div><div class="status-box"><span>LM Studio</span><strong id="llmStatus">checking…</strong></div></div></section>
+  <section class="hero card">
+    <div class="eyebrow">WHAT IS ACTUALLY RUNNING?</div>
+    <h2>Primary study: full Cook C. elegans → full MaleCNS. Full MaleCNS execution is still blocked.</h2>
+    <p class="lede">v0.7 restores HIVE as a composable Core runtime. Neural stages can be removed, bridges are explicit, Venice/Jev and LLMs are independently configurable, and experiment data is exportable. The 1,045-neuron MaleCNS locomotor graph remains a development/control path until <b>malecns_full_v1</b> executes the full graph.</p>
+    <div class="status-grid">
+      <div class="status-box"><span>Neural backend</span><strong id="brainRuntime">checking…</strong></div>
+      <div class="status-box"><span>Primary experiment</span><strong id="realBrainStatus">checking…</strong></div>
+      <div class="status-box"><span>Venice / Jev</span><strong id="jevStatus">checking…</strong></div>
+      <div class="status-box"><span>LLM routing</span><strong id="llmStatus">checking…</strong></div>
+    </div>
+  </section>
 
-<section class="card primary-runner"><div class="eyebrow">START HERE</div><h2>1. What do you want HIVE to do?</h2><select id="taskSelect" onchange="selectTask()"></select><div id="taskHelp" class="task-help"></div>
-<h2>2. Give it something to work on</h2><div class="input-tabs"><button id="textModeBtn" class="tab active" onclick="setInputMode('text')">Plain text</button><button id="jsonModeBtn" class="tab" onclick="setInputMode('json')">JSON</button><button class="tab" onclick="loadExample()">Load example</button></div>
-<textarea id="runInput" class="run-input" placeholder="Paste a note, event, claim, API result, or observation here…"></textarea>
-<div class="run-row"><button class="run-button" onclick="runTask()">Run development control</button><span id="runStatus" class="meta">Nothing has run yet.</span></div>
-<div id="humanResult" class="result-shell empty-result"><div class="empty-title">Your result will appear here in normal language.</div><div class="meta">Raw JSON is available underneath the result, not instead of it.</div></div></section>
+  <section class="card primary-runner">
+    <div class="eyebrow">START HERE</div>
+    <h2>1. What do you want HIVE to do?</h2>
+    <select id="taskSelect" onchange="selectTask()"></select>
+    <div id="taskHelp" class="task-help"></div>
+    <h2>2. Give it something to work on</h2>
+    <div class="input-tabs">
+      <button id="textModeBtn" class="tab active" onclick="setInputMode('text')">Plain text</button>
+      <button id="jsonModeBtn" class="tab" onclick="setInputMode('json')">JSON</button>
+      <button class="tab" onclick="loadExample()">Load example</button>
+    </div>
+    <textarea id="runInput" class="run-input" placeholder="Paste a note, event, claim, API result, or observation here…"></textarea>
+    <div class="run-row"><button class="run-button" onclick="runTask()">Run development control</button><span id="runStatus" class="meta">Nothing has run yet.</span></div>
+    <div id="humanResult" class="result-shell empty-result"><div class="empty-title">Your result will appear here in normal language.</div><div class="meta">Raw JSON is available underneath the result, not instead of it.</div></div>
+  </section>
 
-<section class="card"><div class="eyebrow">CONNECTOMES</div><h2>Measured neural wiring</h2><p class="meta">Full MaleCNS is <b>required</b> for the primary study. The 1,045-neuron locomotor graph is labeled CONTROL ONLY. v0.6 does not auto-download the ~1.1 GB full pack because the full-graph engine is not implemented yet; downloading data alone would not make the experiment ready.</p><div id="connectomes"></div></section>
+  <section class="card">
+    <div class="eyebrow">CONNECTOMES</div>
+    <h2>Measured neural wiring</h2>
+    <p class="meta">Full MaleCNS is <b>required</b> for the primary study. Install state, execution state, and experimental role are shown separately; a downloaded dataset is never treated as an executed brain.</p>
+    <div id="connectomes"></div>
+  </section>
 
-<section class="grid"><div class="card"><div class="eyebrow">ALWAYS-ON INPUTS</div><h2>Configured data sources</h2><div id="sources"></div></div><div class="card"><div class="eyebrow">MEMORY</div><h2>Recent events</h2><button class="secondary" onclick="loadEventsHuman()">Refresh</button><div id="eventsHuman" class="event-list"></div></div></section>
+  <section class="grid">
+    <div class="card"><div class="eyebrow">ALWAYS-ON INPUTS</div><h2>Configured data sources</h2><div id="sources"></div></div>
+    <div class="card"><div class="eyebrow">MEMORY</div><h2>Recent events</h2><button class="secondary" onclick="loadEventsHuman()">Refresh</button><div id="eventsHuman" class="event-list"></div></div>
+  </section>
 
-<details class="card advanced" open><summary><b>Core configuration</b> — neural stages, bridges, providers, prompts, chains, and ablations</summary><div class="advanced-body">
-<p class="note"><b>What is a worker?</b> A worker is a saved experiment recipe: task + data environment + Larva/Bee state settings + Jev/LLM settings. It is not a separate little autonomous agent. The normal front door above chooses the appropriate worker for you.</p>
-<div class="formgrid"><label>Worker<select id="workerSelect" onchange="loadWorkerForm()"></select></label><label>Purpose<input id="workerRole" readonly></label></div><p id="workerDescription" class="meta"></p>
-<div class="togglebar"><label><input id="runJev" type="checkbox"> Jev this run</label><label><input id="runLlm" type="checkbox"> LLM this run</label></div>
-<label>Task prompt<textarea id="taskPrompt"></textarea></label><label>Jev questions<textarea id="jevQuestions" class="codearea"></textarea></label><button onclick="saveAdvancedWorker()">Save prompt/questions</button>
-<div class="subcard"><h3>2 × 2 comparison</h3><p class="meta">Same worker and same input; only Jev/LLM toggles change.</p><button class="secondary" onclick="runMatrix()">Run comparison</button><div id="matrixHuman"></div></div>
-<div class="subcard"><h3>Provider diagnostics</h3><button class="secondary" onclick="loadProviders(true)">Test Venice + LM Studio</button><pre id="providers">not tested</pre></div>
-<div class="subcard"><h3>Raw last run</h3><pre id="rawRun">none</pre></div>
-</div></details>
-</main><script src="/static/app.js"></script></body></html>
+  <details class="card advanced" open>
+    <summary><b>Core configuration</b> — neural stages, bridges, providers, prompts, chains, recording, and ablations</summary>
+    <div class="advanced-body">
+      <p class="note"><b>Core:</b> one saved experimental unit containing a data environment, removable neural stages, explicit bridges, optional Jev, optional LLM reasoning, and recording/output policy. <b>Hive:</b> an ordered chain of Cores.</p>
+      <div class="formgrid">
+        <label>Core<select id="workerSelect" onchange="loadWorkerForm()"></select></label>
+        <label>Purpose<input id="workerRole" readonly></label>
+      </div>
+      <p id="workerDescription" class="meta"></p>
+
+      <h3>Neural stages</h3>
+      <div id="brainStages"></div>
+
+      <h3>Bridges</h3>
+      <div id="bridges"></div>
+
+      <h3>Decision + reasoning providers</h3>
+      <div class="togglebar">
+        <label><input id="runJev" type="checkbox"> Jev enabled</label>
+        <label><input id="runLlm" type="checkbox"> LLM enabled</label>
+      </div>
+      <div class="formgrid">
+        <label>Jev model<input id="jevModel"></label>
+        <label>LLM provider<select id="llmProvider"><option value="venice">Venice</option><option value="lmstudio">LM Studio</option></select></label>
+        <label>LLM model<input id="llmModel" placeholder="model id"></label>
+        <label>LLM activation<select id="llmActivation"><option value="jev_gate">Jev gate</option><option value="always">Always</option><option value="manual">Manual</option></select></label>
+        <label>Recording<select id="recordingLevel"><option value="summary">Summary</option><option value="trace">Trace</option><option value="full">Full state artifacts</option></select></label>
+      </div>
+
+      <label>Task prompt<textarea id="taskPrompt"></textarea></label>
+      <label>Jev questions<textarea id="jevQuestions" class="codearea"></textarea></label>
+      <button onclick="saveAdvancedWorker()">Save Core configuration</button>
+
+      <div class="subcard">
+        <h3>Hive chain</h3>
+        <p class="meta">Comma-separated Core IDs. Each Core receives a provenance-linked handoff from the previous Core.</p>
+        <input id="hiveChain" placeholder="scout,keeper,auditor">
+        <button class="secondary" onclick="runHiveChain()">Run chain</button>
+        <div id="hiveResult"></div>
+      </div>
+
+      <div class="subcard">
+        <h3>Experiment data</h3>
+        <p class="meta">Lossless ZIP: runs JSONL, events, provider-call receipts, Core configurations, connectome receipts, and flattened CSV views. Full-state recording artifacts are included when present.</p>
+        <button class="secondary" onclick="downloadExperiment()">Download this Core data</button>
+        <button class="secondary" onclick="downloadExperiment(true)">Download all experiment data</button>
+      </div>
+
+      <div class="subcard">
+        <h3>2 × 2 comparison</h3>
+        <p class="meta">Same Core and same input; only Jev/LLM toggles change.</p>
+        <button class="secondary" onclick="runMatrix()">Run comparison</button>
+        <div id="matrixHuman"></div>
+      </div>
+
+      <div class="subcard">
+        <h3>Provider diagnostics</h3>
+        <button class="secondary" onclick="loadProviders(true)">Test Venice + LM Studio</button>
+        <pre id="providers">not tested</pre>
+      </div>
+
+      <div class="subcard"><h3>Raw last run</h3><pre id="rawRun">none</pre></div>
+    </div>
+  </details>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
