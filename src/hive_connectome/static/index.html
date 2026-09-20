@@ -16,7 +16,7 @@
 
 <section class="grid"><div class="card"><div class="eyebrow">ALWAYS-ON INPUTS</div><h2>Configured data sources</h2><div id="sources"></div></div><div class="card"><div class="eyebrow">MEMORY</div><h2>Recent events</h2><button class="secondary" onclick="loadEventsHuman()">Refresh</button><div id="eventsHuman" class="event-list"></div></div></section>
 
-<details class="card advanced"><summary><b>Advanced experiment controls</b> — workers, prompts, provider toggles, 2×2 ablation</summary><div class="advanced-body">
+<details class="card advanced" open><summary><b>Core configuration</b> — neural stages, bridges, providers, prompts, chains, and ablations</summary><div class="advanced-body">
 <p class="note"><b>What is a worker?</b> A worker is a saved experiment recipe: task + data environment + Larva/Bee state settings + Jev/LLM settings. It is not a separate little autonomous agent. The normal front door above chooses the appropriate worker for you.</p>
 <div class="formgrid"><label>Worker<select id="workerSelect" onchange="loadWorkerForm()"></select></label><label>Purpose<input id="workerRole" readonly></label></div><p id="workerDescription" class="meta"></p>
 <div class="togglebar"><label><input id="runJev" type="checkbox"> Jev this run</label><label><input id="runLlm" type="checkbox"> LLM this run</label></div>
