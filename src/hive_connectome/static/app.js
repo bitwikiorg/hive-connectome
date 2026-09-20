@@ -55,8 +55,9 @@ async function refreshAll(){
     $('health').className='pill ok';
     renderSystemTruth();
     renderCoreSelect();
-    await Promise.all([loadProviderConfig(),loadProviders(),loadConnectomes()]);
+    await Promise.all([loadProviderConfig(),loadConnectomes()]);
     await selectCore(true);
+    loadProviders();
   }catch(error){
     $('health').textContent='HIVE unavailable';
     $('health').className='pill bad';
@@ -85,8 +86,8 @@ function renderSystemTruth(){
 function renderCoreSelect(){
   const previous=$('coreSelect').value;
   $('coreSelect').innerHTML=cores.map(core=>{
-    const primary=core.id==='primary-full'?'PRIMARY · ':'';
-    return '<option value="'+escapeHtml(core.id)+'">'+escapeHtml(primary+core.name)+' — '+escapeHtml(core.id)+'</option>';
+    const prefix=core.id==='primary-full'?'PRIMARY · ':'EXAMPLE CORE · ';
+    return '<option value="'+escapeHtml(core.id)+'">'+escapeHtml(prefix+core.name)+' — '+escapeHtml(core.id)+'</option>';
   }).join('');
   if(previous && cores.some(c=>c.id===previous)) $('coreSelect').value=previous;
   else if(cores.some(c=>c.id==='primary-full')) $('coreSelect').value='primary-full';
@@ -191,7 +192,7 @@ function renderPlan(){
   html+='<div class="pipeline-arrow">→</div><div class="pipeline-node"><div class="node-type">End</div><strong>Recorded result</strong><div class="node-engine">'+escapeHtml($('recordingLevel').value)+' recording</div><div class="node-detail">Run + stage + provider receipts are persisted.</div></div>';
   $('pipelineBuilder').innerHTML=html;
 
-  const warnings=[...(currentPlan.warnings||[])];
+  const warnings=dirty?[]:[...(currentPlan.warnings||[])];
   for(const stage of stages){
     const p=localStagePlan(stage);
     if(stage.enabled && p.pack_id && !p.dataset_installed) warnings.push((p.name||stage.id)+' is enabled but its dataset is not installed.');
