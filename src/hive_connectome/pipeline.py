@@ -418,6 +418,7 @@ class HivePipeline:
             else:
                 merged_drives: dict[int, float] = {}
                 identity_payloads: list[dict[str, Any]] = []
+                explicit_bridge_seen = False
                 for source_id in active_sources:
                     bridge = self._bridge_for(worker, source_id, stage.id)
                     bridged, trace = self._bridge_payload(
@@ -427,6 +428,8 @@ class HivePipeline:
                         event=req.event.payload,
                     )
                     bridge_trace.append(trace)
+                    if "__hive_stimulus__" in bridged:
+                        explicit_bridge_seen = True
                     for pair in bridged.get("__hive_stimulus__", []):
                         idx, amplitude = int(pair[0]), float(pair[1])
                         merged_drives[idx] = max(-4.0, min(4.0, merged_drives.get(idx, 0.0) + amplitude))
@@ -438,7 +441,7 @@ class HivePipeline:
                     "objective": worker.experiment.objective,
                     "upstream": identity_payloads,
                 }
-                if merged_drives:
+                if explicit_bridge_seen:
                     payload["__hive_stimulus__"] = [[idx, amp] for idx, amp in sorted(merged_drives.items())]
             observation = engine.step(payload)
             if worker.outputs.recording_level == "full":
