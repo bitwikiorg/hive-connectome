@@ -25,7 +25,7 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
 
     root = client.get("/")
     assert root.status_code == 200
-    assert "What do you want HIVE to do?" in root.text
+    assert "HIVE EXPERIMENT LAB" in root.text\n    assert "See exactly what happened" in root.text
 
     templates = client.get("/api/experiment-templates").json()["templates"]
     assert {x["id"] for x in templates} >= {"manual_classifier", "browser_dom_reader", "stream_watch"}
@@ -33,6 +33,21 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
     sources = client.get("/api/sources").json()
     inbox = next(x for x in sources if x["id"] == "local-inbox")
     assert inbox["path"] == str(test_settings.data_dir / "inbox")
+
+
+def test_experiment_plan_exposes_backend_resolved_execution_path(client):
+    plan = client.get("/api/experiments/primary-full/plan")
+    assert plan.status_code == 200
+    body = plan.json()
+    assert body["core_id"] == "primary-full"
+    assert body["is_primary_topology"] is True
+    assert [stage["id"] for stage in body["stages"]] == ["worm", "fly"]
+    assert body["stages"][0]["engine_label"] == "Cook full C. elegans"
+    assert body["stages"][1]["engine_label"] == "Full MaleCNS v1.0"
+    assert body["bridges"][0]["label"] == "Neural state projection"
+    assert body["sequence"][0]["type"] == "input"
+    assert body["sequence"][-1]["type"] == "output"
+    assert client.get("/api/experiments/missing/plan").status_code == 404
 
 
 def test_worker_crud_clone_and_validation(client):
