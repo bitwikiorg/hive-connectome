@@ -11,7 +11,8 @@ from fastapi.staticfiles import StaticFiles
 
 from hive_connectome.connectomes.installer import ConnectomeInstaller
 from hive_connectome.db import HiveDB
-from hive_connectome.evals import EvalRequest, summarize_eval\nfrom hive_connectome.exports import build_experiment_export
+from hive_connectome.evals import EvalRequest, summarize_eval
+from hive_connectome.exports import build_experiment_export
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
 from hive_connectome.pipeline import HivePipeline
 from hive_connectome.providers.lmstudio import LMStudio
