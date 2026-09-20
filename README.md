@@ -3,7 +3,7 @@
 HIVE Connectome is an experimental runtime for **paired mini-brains + typed decisions + optional LLM reasoning + tools**.
 
 
-> **Current runtime truth (v0.6 semantic reset):** the primary study is **full Cook C. elegans → full MaleCNS v1.0**. That primary experiment is currently **BLOCKED / NOT READY** because HIVE does not yet implement full MaleCNS execution. The existing 1,045-neuron / 17,224-edge MaleCNS locomotor path remains runnable only as an explicitly labeled **control/development path**. Full MaleCNS is required by the experiment contract and is not an optional substitute. See [`docs/STATE.md`](docs/STATE.md).
+> **Current runtime truth (v0.7):** the primary study is **full Cook C. elegans → full MaleCNS v1.0**. The full `malecns_full_v1` sparse engine is implemented, but readiness remains empirical: the pinned full datasets must be installed and the exact full graph must execute successfully on the target machine and produce matching execution receipts. The 1,045-neuron MaleCNS locomotor path remains **control/development only**. See [`docs/STATE.md`](docs/STATE.md).
 
 The first deployment target is **Windows + Docker Desktop**. The runtime is deliberately modular so experiments can change the data environment, neural substrate, decision layer, model provider, schedule, and evaluation without rewriting the application.
 
@@ -55,7 +55,7 @@ Everything else stays fixed.
 
 See `docs/WORKERS.md`, `docs/EVALUATION.md`, `docs/REPO_LEARNINGS.md`, and `docs/BROWSER_LAB.md`.
 
-## Current v0.6 state
+## Current v0.7 state
 
 The repository is stabilized around a machine-readable experiment contract:
 
@@ -64,7 +64,7 @@ The repository is stabilized around a machine-readable experiment contract:
 - JEV and LLM remain independent toggles;
 - reduced MaleCNS, synthetic, shuffled, no-connectome, Larva-only, and Bee-only paths are controls only;
 - primary readiness requires the full datasets to be installed, verified, and actually executed by their declared engines;
-- the current full MaleCNS execution engine is not implemented, so `primary_experiment_ready=false`.
+- `malecns_full_v1` is implemented; `primary_experiment_ready` remains false until the target machine successfully executes the exact full datasets and produces valid execution receipts.
 
 Runnable development/control surfaces remain available for testing the application, providers, data flow, and evaluation harness, but they must not be interpreted as the primary study.
 
