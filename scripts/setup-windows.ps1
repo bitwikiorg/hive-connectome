@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "HIVE Connectome - Windows / Docker Desktop setup"
+Write-Host "HIVE Connectome v0.7 - Windows / Docker Desktop setup"
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker CLI not found. Install Docker Desktop first."
@@ -79,21 +79,47 @@ function Install-HiveConnectomePack([string]$PackId,[bool]$ConfirmLarge=$false){
     throw "Timed out installing connectome pack: $PackId"
 }
 
-Write-Host "Installing development/control substrates..."
+Write-Host "Installing required primary substrates..."
 Install-HiveConnectomePack "worm-cook-2020"
+Install-HiveConnectomePack "fly-malecns-v1" $true
+
+Write-Host "Installing the reduced MaleCNS control substrate..."
 Install-HiveConnectomePack "fly-malecns-locomotor"
 
-$runtime=Invoke-RestMethod -Uri "http://127.0.0.1:8088/api/health" -TimeoutSec 10
+Write-Host "Compiling + executing one full primary Cook -> MaleCNS smoke event..."
+$primaryBody = @{
+    worker_id = "primary-full"
+    jev_enabled = $false
+    llm_enabled = $false
+    mode = "offline"
+    event = @{
+        source_id = "setup"
+        kind = "primary_smoke"
+        payload = @{
+            signal = "HIVE_PRIMARY_BOOTSTRAP"
+            purpose = "compile and prove full Cook to full MaleCNS execution"
+        }
+    }
+} | ConvertTo-Json -Depth 12
+
+try {
+    $primaryRun = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8088/api/pipeline/run" -ContentType "application/json" -Body $primaryBody -TimeoutSec 1800
+    Write-Host "Primary smoke run complete: $($primaryRun.run_id)"
+} catch {
+    docker compose logs --tail=200 hive
+    throw "Full primary smoke run failed: $($_.Exception.Message)"
+}
+
+$runtime=Invoke-RestMethod -Uri "http://127.0.0.1:8088/api/health" -TimeoutSec 20
 Write-Host ""
-Write-Warning "PRIMARY EXPERIMENT: BLOCKED"
-Write-Host "The study requires full Cook C. elegans -> full MaleCNS execution."
-Write-Host "v0.6 does not yet implement the full MaleCNS execution engine."
-Write-Host "The 1,045-neuron locomotor graph installed above is CONTROL / DEVELOPMENT ONLY."
-Write-Host "The full ~1.1 GB MaleCNS dataset is REQUIRED for the primary experiment, not optional."
-Write-Host "It is not downloaded automatically in v0.6 because the full-graph engine cannot execute it yet; this avoids wasting bandwidth while the promotion gate is blocked."
-if($runtime.neural_runtime.primary.blockers){
-    Write-Host "Primary blockers:"
-    foreach($b in $runtime.neural_runtime.primary.blockers){Write-Host "  - $b"}
+if($runtime.neural_runtime.primary_experiment_ready){
+    Write-Host "PRIMARY EXPERIMENT: READY"
+} else {
+    Write-Warning "PRIMARY EXPERIMENT: STILL BLOCKED"
+    if($runtime.neural_runtime.primary.blockers){
+        Write-Host "Primary blockers:"
+        foreach($b in $runtime.neural_runtime.primary.blockers){Write-Host "  - $b"}
+    }
 }
 
 try{
