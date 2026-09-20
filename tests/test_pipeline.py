@@ -33,7 +33,8 @@ async def test_primary_full_core_runs_fixture_and_records_full_state(tmp_path:Pa
     primary.outputs.recording_level="full"
     primary.jev.enabled=False
     primary.llm.enabled=False
-    primary.bee.config.update({
+    fly_stage=next(stage for stage in primary.brain_chain if stage.id=="fly")
+    fly_stage.config.update({
         "expected_neurons":4,
         "expected_directed_connections":4,
         "expected_synapses":26,
