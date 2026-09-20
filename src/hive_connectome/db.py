@@ -31,6 +31,16 @@ class HiveDB:
           event_id TEXT NOT NULL,
           json TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS provider_calls (
+          call_id TEXT PRIMARY KEY,
+          run_id TEXT,
+          stage_id TEXT,
+          provider TEXT NOT NULL,
+          capability TEXT NOT NULL,
+          timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_provider_calls_run_id ON provider_calls(run_id);
         CREATE TABLE IF NOT EXISTS sources (
           id TEXT PRIMARY KEY,
           json TEXT NOT NULL,
@@ -63,8 +73,49 @@ class HiveDB:
                 (run["run_id"], run["event"]["id"], json.dumps(run)),
             )
 
+    def insert_provider_call(self, receipt: dict[str, Any], *, run_id: str | None = None, stage_id: str | None = None) -> None:
+        payload = {**receipt, "run_id": run_id, "stage_id": stage_id}
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO provider_calls(call_id,run_id,stage_id,provider,capability,json) VALUES(?,?,?,?,?,?)",
+                (
+                    payload["call_id"],
+                    run_id,
+                    stage_id,
+                    payload.get("provider", "unknown"),
+                    payload.get("capability", "unknown"),
+                    json.dumps(payload),
+                ),
+            )
+
     def list_events(self, limit: int = 50) -> list[dict[str, Any]]:
         rows = self._db.execute("SELECT json FROM events ORDER BY timestamp DESC LIMIT ?", (limit,)).fetchall()
+        return [json.loads(r["json"]) for r in rows]
+
+    def list_runs(self, limit: int = 500, worker_id: str | None = None) -> list[dict[str, Any]]:
+        rows = self._db.execute("SELECT json FROM runs ORDER BY timestamp DESC LIMIT ?", (limit,)).fetchall()
+        result = [json.loads(r["json"]) for r in rows]
+        if worker_id is None:
+            return result
+        return [
+            item for item in result
+            if item.get("execution", {}).get("resolved_worker", {}).get("id") == worker_id
+            or f"worker:{worker_id}" in item.get("labels", [])
+        ]
+
+    def get_run(self, run_id: str) -> dict[str, Any] | None:
+        row = self._db.execute("SELECT json FROM runs WHERE id=?", (run_id,)).fetchone()
+        return json.loads(row["json"]) if row else None
+
+    def list_provider_calls(self, limit: int = 1000, run_id: str | None = None) -> list[dict[str, Any]]:
+        if run_id is None:
+            rows = self._db.execute(
+                "SELECT json FROM provider_calls ORDER BY timestamp DESC LIMIT ?", (limit,)
+            ).fetchall()
+        else:
+            rows = self._db.execute(
+                "SELECT json FROM provider_calls WHERE run_id=? ORDER BY timestamp LIMIT ?", (run_id, limit)
+            ).fetchall()
         return [json.loads(r["json"]) for r in rows]
 
     def upsert_source(self, spec: dict[str, Any]) -> None:
