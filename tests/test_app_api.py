@@ -15,11 +15,12 @@ def test_health_root_templates_and_seeded_sources(client, test_settings):
     assert health.status_code == 200
     body = health.json()
     assert body["ok"] is True
-    assert body["version"] == "0.6.0"
+    assert body["version"] == "0.7.0"
     assert body["neural_runtime"]["primary_experiment_ready"] is False
     assert body["neural_runtime"]["study_mode"] == "CONTROL_ONLY"
     assert body["neural_runtime"]["control_runtime"]["ready"] is True
-    assert any("full MaleCNS execution engine" in x for x in body["neural_runtime"]["primary"]["blockers"])
+    assert any("full MaleCNS" in x for x in body["neural_runtime"]["primary"]["blockers"])
+    assert "primary-full" in body["workers"]
     assert {"scout", "browser", "stream"}.issubset(body["workers"])
 
     root = client.get("/")
@@ -285,3 +286,56 @@ def test_hive_chain_and_experiment_export(client):
         manifest=json.loads(zf.read("manifest.json"))
         assert manifest["format"] == "hive-experiment-bundle"
         assert manifest["counts"]["runs"] >= 1
+
+
+def test_provider_config_is_live_persistent_and_secrets_are_write_only(client, app, test_settings):
+    initial=client.get("/api/providers/config")
+    assert initial.status_code==200
+    assert "venice_api_key" not in initial.json()
+    saved=client.put("/api/providers/config",json={
+        "venice_base_url":"https://api.venice.test/api/v1",
+        "venice_decision_model":"jev-latest",
+        "venice_api_key":"secret-venice",
+        "lmstudio_base_url":"http://lm.test/v1",
+        "lmstudio_api_token":"secret-local",
+        "default_llm_model":"tiny",
+    })
+    assert saved.status_code==200
+    body=saved.json()
+    assert body["venice_api_key_configured"] is True
+    assert body["lmstudio_api_token_configured"] is True
+    assert "secret-venice" not in json.dumps(body)
+    public=json.loads((test_settings.data_dir/"providers.json").read_text())
+    assert "venice_api_key" not in public and public["lmstudio_base_url"]=="http://lm.test/v1"
+    assert (test_settings.data_dir/"provider-secrets"/"venice_api_key").read_text()=="secret-venice"
+    assert app.state.pipeline.venice is not None
+    assert app.state.pipeline.default_llm_model=="tiny"
+
+
+def test_provider_real_call_endpoint_returns_transport_receipt(client, app):
+    from hive_connectome.schemas import DecisionBundle, LLMResult
+
+    class FakeJev:
+        async def decide(self,state,questions,model=None):
+            return DecisionBundle(
+                provider="venice",model=model or "jev-latest",
+                answers={"reachable":{"type":"noul","noul":1.0}},
+                transport={"call_id":"jev-proof","provider":"venice","capability":"decisions","endpoint":"https://test/decisions","requested_model":model or "jev-latest","returned_model":model or "jev-latest","latency_ms":1.2,"http_status":200,"request_hash":"a","response_hash":"b"},
+            )
+    class FakeChat:
+        async def chat(self,model,prompt,context,temperature=0.0):
+            return LLMResult(
+                provider="venice",model=model,text="HIVE_PROVIDER_OK",
+                transport={"call_id":"chat-proof","provider":"venice","capability":"chat","endpoint":"https://test/chat/completions","requested_model":model,"returned_model":model,"latency_ms":2.0,"http_status":200,"request_hash":"c","response_hash":"d"},
+            )
+
+    app.state.pipeline.venice=FakeJev()
+    app.state.pipeline.venice_chat=FakeChat()
+    jev=client.post("/api/providers/test",json={"capability":"venice_jev","model":"jev-latest"})
+    assert jev.status_code==200
+    assert jev.json()["transport"]["call_id"]=="jev-proof"
+    chat=client.post("/api/providers/test",json={"capability":"venice_chat","model":"tiny-chat"})
+    assert chat.status_code==200
+    assert chat.json()["transport"]["call_id"]=="chat-proof"
+    calls=client.get("/api/provider-calls").json()
+    assert {"jev-proof","chat-proof"}.issubset({row["call_id"] for row in calls})
