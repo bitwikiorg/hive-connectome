@@ -110,25 +110,38 @@ http://127.0.0.1:8090/mcp
 
 On first boot, expect:
 
-- several editable example workers;
-- the corrected Cook connectome, full MaleCNS v1.0 pack, and reduced MaleCNS control pack installed + verified;
-- a `primary-full` Core for full Cook → full MaleCNS plus separate control Cores;
-- JEV available when Venice is configured and reachable; a requested JEV call fails visibly rather than silently falling back;
-- LLM calls unavailable until an LM Studio or Venice chat model is configured for the worker;
-- browser DOM/OCR and worker-to-worker bus surfaces to remain visibly marked as unfinished where they are not executable yet.
+- the **Experiment Lab** front door, not an assistant/task menu;
+- `primary-full` selected first;
+- a visual **Resolved execution path** showing Input → neural stages → JEV → LLM → recorded result;
+- each neural stage to show its real engine, dataset status, and whether it is primary/control;
+- C. elegans and MaleCNS to be individually removable with visible switches;
+- JEV and LLM to be independently switchable;
+- a run result rendered as a numbered execution trace showing only stages that actually executed;
+- raw JSON available only under the debugging disclosure;
+- lossless experiment export and a four-way JEV/LLM ablation comparison.
 
-## 6. Test the current control path without external AI
+## 6. Run the primary Core without external AI
 
-Start with the `Scout` worker.
+Choose **PRIMARY · Primary Full Connectome — primary-full**.
 
-In **Experiment runner**:
+1. switch **JEV decision layer** off;
+2. switch **Language-model layer** off;
+3. leave both biological neural stages enabled;
+4. enter plain text or JSON in **Give this Core an input**;
+5. click **Run this Core**.
 
-1. leave JEV off;
-2. leave LLM off;
-3. keep the sample JSON or enter your own JSON;
-4. click **Run selected worker**.
+The trace should show, in order:
 
-You should receive a result containing Cook and MaleCNS locomotor-control neural observations, the fixed readout, an execution receipt, labels, and unresolved items if any. This isolates the current measured-topology control path without JEV/LLM. It is not the primary full-MaleCNS experiment.
+```text
+Input
+→ C. elegans
+→ explicit Worm → Fly bridge
+→ full MaleCNS
+→ fixed local readout
+→ recorded result
+```
+
+The fixed readout is an engineered deterministic readout of the final neural observation. It is not JEV and it is not a claim that the connectome itself discovered semantic labels.
 
 This path requires neither Venice nor LM Studio.
 
@@ -146,9 +159,12 @@ Then restart the HIVE service:
 docker compose restart hive
 ```
 
-In the GUI, click **Test Venice + LM Studio** under Provider health.
+Open **Connections** in the GUI. You can configure Venice there without editing files or restarting HIVE.
 
-A Venice-enabled worker uses the worker's JEV model and typed questions. JEV and the LLM are independent toggles.
+- **Refresh connection status** checks reachability/model discovery.
+- **Real JEV test** performs an actual Venice Decisions inference call and records its call ID, HTTP status, latency, request hash, and response hash.
+
+A JEV-enabled Core sends the recorded neural/event state summary to Venice after the enabled neural stages execute. JEV and the LLM are independent layers.
 
 ## 8. Connect LM Studio running on Windows
 
@@ -186,26 +202,24 @@ Then restart HIVE:
 docker compose restart hive
 ```
 
-Run **Provider health** again.
+Open **Connections** and click **Refresh connection status** again.
 
 ### Choose the local model
 
-Provider health returns the models visible to LM Studio.
+In the selected Core's **Language-model layer**:
 
-For a worker:
-
-1. enable **LLM**;
-2. set **Provider** to `lmstudio`;
+1. enable the layer;
+2. set **Provider** to `LM Studio`;
 3. enter the exact loaded model identifier in **Model**;
-4. choose `always`, `jev_gate`, or `manual` activation;
-5. save the worker;
+4. choose `Always`, `JEV-gated`, or `Manual`;
+5. save the Core;
 6. run the experiment.
 
-A blank worker model falls back to the optional `HIVE_LLM_MODEL` environment setting. Explicit worker model IDs are easier to reason about while experimenting.
+Use **Real LM Studio test** to prove an actual local model call before interpreting experimental results.
 
 ## 9. Run the four-way experiment
 
-For one saved worker, the **Toggle matrix eval** runs the same experiment with:
+For one saved Core, **Ablation comparison → Run JEV/LLM 2 × 2** runs the same input with:
 
 ```text
 JEV off · LLM off
@@ -214,7 +228,7 @@ JEV off · LLM on
 JEV on  · LLM on
 ```
 
-The worker's data environment, prompts, Larva/Bee configuration, and expected task remain fixed. This is the preferred way to test whether either external inference layer actually adds value.
+The Core's input, neural stages, bridge configuration, prompts, and recording policy remain fixed. Only the JEV/LLM toggles change. This is the preferred first test of whether either external inference layer adds measurable value.
 
 ## 10. Connectome data
 
@@ -246,7 +260,7 @@ The container sees this directory read-only at:
 /data/inbox
 ```
 
-Use a worker whose data environment is configured as `file_drop`.
+Use a Core whose data environment is configured as `file_drop`.
 
 ## 12. Update HIVE later
 
@@ -351,7 +365,7 @@ This is usually host/container binding rather than an OpenAI API-path problem. R
 
 ### Venice key is present but JEV fails
 
-Use Provider health and inspect:
+Use **Connections → Refresh connection status / Real JEV test** and inspect:
 
 ```powershell
 docker compose logs --tail=200 hive
