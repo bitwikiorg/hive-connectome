@@ -79,6 +79,8 @@ def compile_full_malecns(
     )
     kept_ids = body_ids[keep]
     kept_superclasses = superclasses[keep]
+    if len(kept_ids) == 0:
+        raise ValueError("MaleCNS annotations produced zero retained neurons")
     order = np.argsort(kept_ids)
     ids = kept_ids[order]
     superclasses = kept_superclasses[order]
@@ -111,9 +113,9 @@ def compile_full_malecns(
             for name in ("body_pre", "body_post", "weight"):
                 if schema.get_field_index(name) < 0:
                     raise ValueError(f"edges.feather missing required column: {name}")
-            pre_id = np.asarray(batch.column(schema.get_field_index("body_pre")), dtype=np.int64)
-            post_id = np.asarray(batch.column(schema.get_field_index("body_post")), dtype=np.int64)
-            counts = np.asarray(batch.column(schema.get_field_index("weight")), dtype=np.int64)
+            pre_id = np.asarray(batch.column(schema.get_field_index("body_pre")).to_numpy(zero_copy_only=False), dtype=np.int64)
+            post_id = np.asarray(batch.column(schema.get_field_index("body_post")).to_numpy(zero_copy_only=False), dtype=np.int64)
+            counts = np.asarray(batch.column(schema.get_field_index("weight")).to_numpy(zero_copy_only=False), dtype=np.int64)
             raw_edge_rows += int(len(pre_id))
 
             pre_index = np.searchsorted(ids, pre_id)
