@@ -225,3 +225,61 @@ def test_tasks_valid_invalid_and_missing_dependency(client, monkeypatch):
     monkeypatch.setattr(app_module, "validate_cron", unavailable)
     task["id"] = "tick2"
     assert client.post("/api/tasks", json=task).status_code == 503
+
+
+def test_core_graph_can_remove_stages_and_bridge_is_explicit(client):
+    scout=client.get("/api/workers/scout").json()
+    assert [stage["id"] for stage in scout["brain_chain"]] == ["worm","fly"]
+    assert scout["bridges"][0]["engine"] == "state_projection_v1"
+
+    run=client.post("/api/pipeline/run",json={
+        "worker_id":"scout","jev_enabled":False,"llm_enabled":False,"mode":"offline",
+        "event":{"source_id":"test","kind":"manual","payload":{"x":3}},
+    }).json()
+    assert set(run["stages"]) == {"worm","fly"}
+    assert run["execution"]["bridges"][0]["source"] == "worm"
+    assert run["execution"]["bridges"][0]["target"] == "fly"
+    assert run["execution"]["bridges"][0]["engine"] == "state_projection_v1"
+    assert run["execution"]["bee"]["metadata"]["input_encoding"] == "explicit bridge stimulus"
+
+    scout["brain_chain"][0]["enabled"]=False
+    assert client.put("/api/workers/scout",json=scout).status_code == 200
+    run=client.post("/api/pipeline/run",json={
+        "worker_id":"scout","jev_enabled":False,"llm_enabled":False,"mode":"offline",
+        "event":{"source_id":"test","kind":"manual","payload":{"x":4}},
+    }).json()
+    assert set(run["stages"]) == {"fly"}
+    assert run["worm"] is None
+    assert run["fly"] is not None
+    assert run["execution"]["bridges"] == []
+
+
+def test_hive_chain_and_experiment_export(client):
+    chain=client.post("/api/hive/run",json={
+        "core_ids":["scout","auditor"],
+        "mode":"offline",
+        "jev_enabled":False,
+        "llm_enabled":False,
+        "event":{"source_id":"test","kind":"manual","payload":{"signal":"x"}},
+    })
+    assert chain.status_code == 200
+    body=chain.json()
+    assert body["count"] == 2
+    assert body["results"][1]["event"]["kind"] == "core_handoff"
+    assert body["results"][1]["event"]["provenance"]["parent_run_id"] == body["results"][0]["run_id"]
+
+    runs=client.get("/api/runs").json()
+    assert len(runs) >= 2
+    detail=client.get(f"/api/runs/{body['results'][0]['run_id']}")
+    assert detail.status_code == 200
+    assert detail.json()["execution"]["resolved_worker"]["id"] == "scout"
+
+    exported=client.get("/api/exports/experiment",params={"worker_id":"scout"})
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith("application/zip")
+    with zipfile.ZipFile(io.BytesIO(exported.content)) as zf:
+        names=set(zf.namelist())
+        assert {"manifest.json","runs.jsonl","events.jsonl","provider_calls.jsonl","cores.json","runs.csv"}.issubset(names)
+        manifest=json.loads(zf.read("manifest.json"))
+        assert manifest["format"] == "hive-experiment-bundle"
+        assert manifest["counts"]["runs"] >= 1
