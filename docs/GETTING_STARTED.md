@@ -64,7 +64,7 @@ The setup script:
 7. waits for the HIVE health endpoint;
 8. automatically downloads and verifies the Cook runtime pack and the small MaleCNS runtime subgraph;
 9. reports that full MaleCNS is required for the primary experiment but full-graph execution is still blocked;
-10. verifies the real-connectome runtime is ready;
+10. reports control-runtime readiness separately from primary-experiment readiness;
 11. checks whether Venice and LM Studio are reachable;
 12. opens the GUI.
 
@@ -110,12 +110,12 @@ On first boot, expect:
 
 - several editable example workers;
 - the corrected Cook connectome and the 1,045-neuron MaleCNS runtime subgraph installed + verified;
-- the default Larva→Bee worker path using those measured topologies;
+- the current development/control Larva→Bee worker path using those measured topologies;
 - JEV available when Venice is configured and reachable; a requested JEV call fails visibly rather than silently falling back;
 - LLM calls unavailable until an LM Studio or Venice chat model is configured for the worker;
 - browser DOM/OCR and worker-to-worker bus surfaces to remain visibly marked as unfinished where they are not executable yet.
 
-## 6. Test a worker without external AI
+## 6. Test the current control path without external AI
 
 Start with the `Scout` worker.
 
@@ -126,7 +126,7 @@ In **Experiment runner**:
 3. keep the sample JSON or enter your own JSON;
 4. click **Run selected worker**.
 
-You should receive a result containing Cook and MaleCNS neural observations, the fixed readout, an execution receipt, labels, and unresolved items if any. This isolates the real connectome path without JEV/LLM.
+You should receive a result containing Cook and MaleCNS locomotor-control neural observations, the fixed readout, an execution receipt, labels, and unresolved items if any. This isolates the current measured-topology control path without JEV/LLM. It is not the primary full-MaleCNS experiment.
 
 This path requires neither Venice nor LM Studio.
 
@@ -226,7 +226,7 @@ The Cook pack and 1,045-neuron MaleCNS locomotor **control** pack are installed 
 - records an installation receipt;
 - never executes downloaded connectome data.
 
-MaleCNS is a large download (roughly 1.1 GB for the pinned pack), so the GUI asks for confirmation.
+The full MaleCNS pack is roughly 1.1 GB and remains installable for data preparation. Installing it still does not satisfy primary readiness until the full-graph engine actually executes it.
 
 ## 11. Put local test data into HIVE
 
