@@ -21,11 +21,18 @@ def test_inline_handlers_have_javascript_functions():
 
 
 def test_gui_human_first_controls_and_api_targets_present():
-    for control in ["taskSelect","runInput","humanResult","workerSelect","runJev","runLlm","matrixHuman","providers","connectomes","brainStages","bridges","jevModel","llmProvider","llmModel","recordingLevel","hiveChain","hiveResult"]:
+    for control in ["taskSelect","runInput","humanResult","workerSelect","runJev","runLlm","matrixHuman","providers","connectomes","brainStages","bridges","jevModel","llmProvider","llmModel","recordingLevel","hiveChain","hiveResult","veniceBaseUrl","veniceDefaultJevModel","veniceApiKey","lmstudioBaseUrl","lmstudioApiToken","defaultLlmModel","providerConfigState"]:
         assert f'id="{control}"' in HTML
-    for route in ["/api/health","/api/workers","/api/pipeline/run","/api/hive/run","/api/evals/run","/api/providers/status","/api/connectomes","/api/sources","/api/events","/api/exports/experiment"]:
+    for route in ["/api/health","/api/workers","/api/pipeline/run","/api/hive/run","/api/evals/run","/api/providers/status","/api/providers/config","/api/providers/test","/api/connectomes","/api/sources","/api/events","/api/exports/experiment"]:
         assert route in JS
     assert "Install verified pack" in JS
     assert "Neural stages actually executed" in JS
     assert "Jev LIVE:" in JS
     assert "state projection" in JS
+
+
+def test_gui_exposes_real_provider_proof_calls_and_data_export():
+    for phrase in ["Run real JEV call","Run real Venice LLM call","Run real LM Studio call","Download all experiment data"]:
+        assert phrase in HTML
+    assert "Connection/status check only" in JS
+    assert "request hash" in JS and "response hash" in JS
