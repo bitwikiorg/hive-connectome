@@ -103,7 +103,7 @@ Worker-level `daemon` and `cron` settings are now executable when explicitly ena
 
 ### JEV semantics
 
-The old `confidence_threshold` wording was misleading for `noul`. Venice documents `noul` as a yes-probability from 0 to 1 with no separate confidence field. The setting is now `llm_gate_threshold`, with backward-compatible loading of old configs.
+The old `confidence_threshold` / `llm_gate_threshold` settings are retained only as backward-compatible configuration fields. They no longer decide whether the LLM runs. LLM invocation is controlled by the ordered `llm` architecture tag plus the independent LLM ablation toggle.
 
 ### LLM providers
 
