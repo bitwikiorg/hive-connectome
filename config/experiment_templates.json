@@ -29,14 +29,12 @@
           "enabled": true,
           "provider": "venice",
           "model": "jev-latest",
-          "feedback_to_brain": true,
-          "llm_gate_threshold": 0.65
+          "feedback_to_brain": true
         },
         "llm": {
           "enabled": false,
           "provider": "lmstudio",
           "model": null,
-          "activation": "always",
           "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
           "temperature": 0.2,
           "verify_with_jev": true,
@@ -89,14 +87,12 @@
           "enabled": true,
           "provider": "venice",
           "model": "jev-latest",
-          "feedback_to_brain": true,
-          "llm_gate_threshold": 0.7
+          "feedback_to_brain": true
         },
         "llm": {
           "enabled": true,
           "provider": "lmstudio",
           "model": null,
-          "activation": "always",
           "prompt": "Use the extracted DOM/accessibility evidence to answer the experiment question. Do not invent content that is not present.",
           "temperature": 0.1,
           "verify_with_jev": true,
@@ -149,14 +145,12 @@
           "enabled": true,
           "provider": "venice",
           "model": "jev-latest",
-          "feedback_to_brain": true,
-          "llm_gate_threshold": 0.7
+          "feedback_to_brain": true
         },
         "llm": {
           "enabled": true,
           "provider": "lmstudio",
           "model": null,
-          "activation": "always",
           "prompt": "Interpret only the visual/OCR evidence supplied. Report uncertain text explicitly.",
           "temperature": 0.1,
           "verify_with_jev": true,
@@ -210,14 +204,12 @@
           "enabled": true,
           "provider": "venice",
           "model": "jev-latest",
-          "feedback_to_brain": true,
-          "llm_gate_threshold": 0.7
+          "feedback_to_brain": true
         },
         "llm": {
           "enabled": false,
           "provider": "lmstudio",
           "model": null,
-          "activation": "always",
           "prompt": "Explain only high-value anomalies or unresolved transitions.",
           "temperature": 0.2,
           "verify_with_jev": true,
@@ -270,14 +262,12 @@
           "enabled": true,
           "provider": "venice",
           "model": "jev-latest",
-          "feedback_to_brain": true,
-          "llm_gate_threshold": 0.7
+          "feedback_to_brain": true
         },
         "llm": {
           "enabled": true,
           "provider": "lmstudio",
           "model": null,
-          "activation": "always",
           "prompt": "Extract project/entity/state information from the local evidence. Do not infer private facts beyond the supplied source.",
           "temperature": 0.1,
           "verify_with_jev": true,
