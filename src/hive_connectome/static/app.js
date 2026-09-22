@@ -1,6 +1,7 @@
 const $=id=>document.getElementById(id);
 const pretty=value=>JSON.stringify(value,null,2);
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const architectureArray=value=>Array.isArray(value)?value:String(value||'').split(',').map(tag=>tag.trim()).filter(Boolean);
 
 let cores=[];
 let currentCore=null;
@@ -437,7 +438,7 @@ function renderRun(result,payload){
           '<div class="metrics-grid"><div class="metric"><span>Stimulus channels</span><strong>'+escapeHtml(formatNumber(component.stimulus_count||0))+'</strong></div><div class="metric"><span>Source step</span><strong>'+escapeHtml(formatNumber(component.source_step||0))+'</strong></div></div>';
       }else if(component.type==='neural_readout'){
         const hashes=Object.entries(component.state_hashes||{}).map(([stage,hash])=>stage+': '+shortId(hash)).join(' · ');
-        body='<div class="meta">Whole-state representation built for: '+escapeHtml((component.stages||[]).join(', ')||'no neural stage yet')+'</div>'+
+        body='<div class="meta">Whole-state representation built for: '+escapeHtml((component.stages||[]).join(', ')||'no neural stage yet')+'. This is a deterministic engineering readout used to expose neural state to other Core components.</div>'+
           (hashes?'<div class="meta">'+escapeHtml(hashes)+'</div>':'');
       }else if(component.type==='jev'){
         body='<div class="meta">Real Venice Decisions call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'. JEV outputs are typed inference judgments, not labels discovered by the connectome itself.</div>';
