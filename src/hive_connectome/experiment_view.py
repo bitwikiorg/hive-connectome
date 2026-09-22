@@ -20,8 +20,11 @@ _ENGINE_LABELS = {
 }
 
 _BRIDGE_LABELS = {
-    "state_projection_v1": "Neural state projection",
+    "whole_state_projection_v1": "Whole-state neural projection",
+    "state_projection_v1": "Legacy excerpt projection control",
+    "random_projection_v1": "Random projection control",
     "hash_projection_v1": "Hash projection control",
+    "zero_bridge_v1": "Zero / null bridge control",
     "identity_payload_v1": "Payload handoff",
 }
 
