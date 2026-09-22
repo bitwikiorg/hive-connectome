@@ -595,9 +595,16 @@ class HivePipeline:
             llm_enabled = bool(configured_llm)
 
         llm_enabled = bool(llm_enabled or req.force_llm)
-        architecture = list(worker.architecture)
+        architecture = list(req.architecture or worker.architecture)
         stage_specs = {stage.id: stage for stage in worker.brain_chain}
         bridge_specs = {bridge.id: bridge for bridge in worker.bridges}
+        valid_tags = set(stage_specs) | set(bridge_specs) | {
+            "readout", "jev", "llm", "jev_verify", "feedback"
+        }
+        unknown_tags = [tag for tag in architecture if tag not in valid_tags]
+        if unknown_tags:
+            raise RuntimeError(f"requested architecture contains unknown tags: {unknown_tags}")
+        feedback_enabled = True if req.feedback_enabled is None else bool(req.feedback_enabled)
 
         jev_tagged = "jev" in architecture
         llm_tagged = "llm" in architecture
@@ -608,7 +615,9 @@ class HivePipeline:
             self.db.insert_event(req.event.model_dump(mode="json"))
 
         engines = self._engines(worker)
-        integration_cycles = worker.runtime.integration_cycles
+        integration_cycles = int(
+            req.harness_passes or worker.runtime.resolved_harness_passes
+        )
 
         previous_readout_states = {
             stage_id: snapshot_state(engine)
@@ -635,20 +644,27 @@ class HivePipeline:
             components: list[dict[str, Any]] = []
             decision_state: dict[str, Any] | None = None
             decision_state_hash: str | None = None
+            decision_state_artifact: str | None = None
             llm = None
             verification = None
             decisions = brain_readout({})
             latest_jev_feedback: float | None = None
             latest_jev_decision: DecisionBundle | None = None
             latest_jev_context_hash: str | None = None
+            latest_jev_context_artifact: str | None = None
+            latest_jev_call_id: str | None = None
             latest_llm_feedback: float | None = None
+            latest_llm_readout_hash: str | None = None
             latest_llm_context_hash: str | None = None
+            latest_llm_context_artifact: str | None = None
+            latest_llm_call_id: str | None = None
             cycle_provider_ids: list[str] = []
 
             def invalidate_readout() -> None:
-                nonlocal decision_state, decision_state_hash
+                nonlocal decision_state, decision_state_hash, decision_state_artifact
                 decision_state = None
                 decision_state_hash = None
+                decision_state_artifact = None
 
             def build_readout() -> dict[str, Any]:
                 neural_state: dict[str, Any] = {}
