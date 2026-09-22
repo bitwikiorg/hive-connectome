@@ -107,7 +107,6 @@ async def test_venice_llm_provider_and_worker_temperature(tmp_path):
     scout=workers.get("scout")
     scout.llm.provider="venice"
     scout.llm.model="chat-model"
-    scout.llm.activation="always"
     scout.llm.temperature=0.6
     workers.save(scout)
     vc=FakeVeniceChat()
