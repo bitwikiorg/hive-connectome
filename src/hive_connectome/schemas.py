@@ -77,6 +77,27 @@ class PipelineRequest(BaseModel):
     llm_enabled: bool | None = None
     mode: Literal["auto", "offline", "live"] = "auto"
     force_llm: bool = False
+    architecture: list[str] | None = None
+    harness_passes: int | None = Field(default=None, ge=1, le=8)
+    feedback_enabled: bool | None = None
+
+
+class TaskResult(BaseModel):
+    """Architecture-independent task result used by evaluation.
+
+    Components may differ internally, but every run exposes one common result
+    surface so the scorer does not depend on whether JEV, an LLM, or a neural
+    baseline produced the answer.
+    """
+
+    answer: Any = None
+    structured_output: Any = None
+    confidence: float | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)
+    source: str = "unknown"
+    valid: bool = True
+    error: str | None = None
 
 
 class PipelineResult(BaseModel):
@@ -91,6 +112,7 @@ class PipelineResult(BaseModel):
     modulation: float
     labels: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
+    task_result: TaskResult = Field(default_factory=TaskResult)
     execution: dict[str, Any] = Field(default_factory=dict)
 
 
