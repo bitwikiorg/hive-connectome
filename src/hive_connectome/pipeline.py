@@ -22,6 +22,7 @@ from hive_connectome.schemas import (
     DecisionBundle,
     DecisionType,
     JevQuestion,
+    LLMResult,
     NeuralObservation,
     PipelineRequest,
     PipelineResult,
