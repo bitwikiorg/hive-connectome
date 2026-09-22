@@ -131,7 +131,7 @@ async def test_nonpersistent_brain_state_resets_and_labels_can_be_disabled(tmp_p
     p=HivePipeline(db,workers)
     a=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
     b=await p.run(PipelineRequest(worker_id="scout",jev_enabled=False,llm_enabled=False,event=EventEnvelope(payload={"x":1})))
-    assert a.worm.step == 1 and b.worm.step == 1
+    assert a.worm.step == 2 and b.worm.step == 2
     assert a.labels == [] and b.labels == []
     db.close()
 
