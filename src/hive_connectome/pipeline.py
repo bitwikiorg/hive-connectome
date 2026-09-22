@@ -472,17 +472,21 @@ class HivePipeline:
             cycle_bridges: list[dict[str, Any]] = []
             components: list[dict[str, Any]] = []
             decision_state: dict[str, Any] | None = None
+            decision_state_hash: str | None = None
             llm = None
             verification = None
             decisions = brain_readout({})
             latest_jev_feedback: float | None = None
             latest_jev_decision: DecisionBundle | None = None
+            latest_jev_context_hash: str | None = None
             latest_llm_feedback: float | None = None
+            latest_llm_context_hash: str | None = None
             cycle_provider_ids: list[str] = []
 
             def invalidate_readout() -> None:
-                nonlocal decision_state
+                nonlocal decision_state, decision_state_hash
                 decision_state = None
+                decision_state_hash = None
 
             def build_readout() -> dict[str, Any]:
                 neural_state: dict[str, Any] = {}
@@ -651,6 +655,9 @@ class HivePipeline:
 
                 if tag == "readout":
                     decision_state = build_readout()
+                    decision_state_hash = hashlib.sha256(
+                        _canonical_bytes(decision_state)
+                    ).hexdigest()
                     components.append({
                         "tag": tag,
                         "type": "neural_readout",
@@ -660,6 +667,7 @@ class HivePipeline:
                             stage_id: item["whole_state"]["state_hash"]
                             for stage_id, item in decision_state["neural_state"].items()
                         },
+                        "context_hash": decision_state_hash,
                     })
                     continue
 
@@ -688,6 +696,7 @@ class HivePipeline:
                         )
                         jev_call_count += 1
                         latest_jev_decision = decisions
+                        latest_jev_context_hash = decision_state_hash
                         self._store_transport(
                             run_id,
                             f"jev:cycle-{cycle_index + 1}:component-{component_index}",
@@ -718,6 +727,7 @@ class HivePipeline:
                         "provider": decisions.provider,
                         "model": decisions.model,
                         "call_id": decisions.transport.get("call_id"),
+                        "context_hash": latest_jev_context_hash,
                     })
                     continue
 
@@ -735,7 +745,10 @@ class HivePipeline:
                             "LLM architecture tag requires a readout tag after the most recent neural/bridge change"
                         )
                     llm_context = dict(decision_state)
-                    if latest_jev_decision is not None:
+                    if (
+                        latest_jev_decision is not None
+                        and latest_jev_context_hash == decision_state_hash
+                    ):
                         llm_context["jev_decision"] = latest_jev_decision.model_dump(mode="json")
                     if worker.llm.provider == "lmstudio":
                         model = worker.llm.model or self.default_llm_model
@@ -788,6 +801,7 @@ class HivePipeline:
                         provider_call_ids.append(call_id)
                         cycle_provider_ids.append(call_id)
                     latest_llm_feedback = self._llm_feedback_signal(llm)
+                    latest_llm_context_hash = decision_state_hash
                     components.append({
                         "tag": tag,
                         "type": "llm",
@@ -795,6 +809,11 @@ class HivePipeline:
                         "provider": llm.provider,
                         "model": llm.model,
                         "call_id": llm.transport.get("call_id"),
+                        "context_hash": latest_llm_context_hash,
+                        "jev_context_included": bool(
+                            latest_jev_decision is not None
+                            and latest_jev_context_hash == decision_state_hash
+                        ),
                         "neural_feedback": latest_llm_feedback,
                     })
                     continue
@@ -816,6 +835,10 @@ class HivePipeline:
                         raise RuntimeError(
                             "JEV verification requires an LLM tag to execute earlier in the architecture"
                         )
+                    if latest_llm_context_hash != decision_state_hash:
+                        raise RuntimeError(
+                            "JEV verification requires the latest LLM output to have been generated from the current readout"
+                        )
                     if self.venice is None:
                         raise RuntimeError(
                             "JEV verification is enabled, but Venice/JEV is not configured"
@@ -825,7 +848,10 @@ class HivePipeline:
                             "evidence": decision_state,
                             "llm_output": llm.text,
                         }
-                        if latest_jev_decision is not None:
+                        if (
+                            latest_jev_decision is not None
+                            and latest_jev_context_hash == decision_state_hash
+                        ):
                             verification_state["jev_decision"] = latest_jev_decision.model_dump(mode="json")
                         verification = await self.venice.decide(
                             verification_state,
