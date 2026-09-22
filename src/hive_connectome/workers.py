@@ -83,10 +83,12 @@ class LLMConfig(BaseModel):
     enabled: bool = False
     provider: Literal["lmstudio", "venice"] = "lmstudio"
     model: str | None = None
-    activation: Literal["always", "jev_gate", "manual"] = "jev_gate"
+    activation: Literal["always"] = "always"
     prompt: str = ""
     temperature: float = Field(default=0.2, ge=0, le=2)
     verify_with_jev: bool = True
+    feedback_to_brain: bool = True
+    feedback_targets: list[str] = Field(default_factory=list)
 
 
 class RuntimeSpec(BaseModel):
