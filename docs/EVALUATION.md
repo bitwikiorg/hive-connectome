@@ -11,10 +11,14 @@ ordered architecture tags
 neural stage + bridge configuration
 JEV questions
 LLM prompt
-integration-cycle count
+harness-pass count
 runtime behavior
 expected output
 ```
+
+## Architecture variants
+
+The evaluator is no longer limited to the JEV/LLM 2×2. A variant can freeze architecture order, harness passes, feedback, bridge strategy, input encoder, neural stage engine/config, and the JEV/LLM toggles. The legacy 2×2 remains a useful subset.
 
 ## Primary JEV/LLM ablation
 
@@ -27,19 +31,18 @@ For one worker and one fixed test set, run:
 | `jev_off_llm_on` | off | on |
 | `jev_on_llm_on` | on | on |
 
-Nothing else should change. In particular, the architecture tags and integration-cycle count stay identical across the four JEV/LLM ablations; only the two inference toggles change. If architecture order or cycle count is the variable under study, that must be a separate named experiment.
+Nothing else should change. In particular, the architecture tags and harness-pass count stay identical across the four JEV/LLM ablations; only the two inference toggles change. If architecture order or cycle count is the variable under study, that must be a separate named experiment.
 
 Measure:
 
-- task correctness
-- calibration where applicable
-- latency
-- JEV calls
-- LLM calls
-- unresolved cases
-- failure rate
-- state hashes
-- exact worker/config version
+- task score through one architecture-independent `TaskResult` scorer;
+- uncertainty across repetitions;
+- latency and latency dispersion;
+- JEV, LLM, neural-stage, and harness-pass call budgets;
+- whether compared variants are compute-matched;
+- unresolved/invalid results and failure rate;
+- state/context hashes and artifacts;
+- exact worker/variant/task-set/scorer hashes.
 
 ## Neural controls
 
