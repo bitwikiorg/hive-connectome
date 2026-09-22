@@ -110,7 +110,7 @@ async function selectCore(initial=false){
 function syncControlsFromCore(){
   $('coreName').textContent=currentCore.name;
   $('coreObjective').textContent=currentCore.experiment?.objective||currentCore.description||'No objective recorded.';
-  $('architectureTags').value=(currentCore.architecture||[]).join(',');
+  $('architectureTags').value=architectureArray(currentCore.architecture).join(',');
   $('integrationCycles').value=currentCore.runtime?.integration_cycles||2;
   $('jevEnabled').checked=Boolean(currentCore.jev?.enabled);
   $('jevModel').value=currentCore.jev?.model||'jev-latest';
@@ -406,7 +406,7 @@ function renderRun(result,payload){
   const trace=ex.integration?.trace||[];
   const calledComponents=trace.flatMap(cycle=>cycle.components||[]).filter(item=>item.called).length;
   $('runSummary').innerHTML='<div class="run-overview"><div><h3>'+escapeHtml(currentCore.name)+'</h3>'+
-    '<div class="meta">Architecture: '+escapeHtml((ex.architecture||currentCore.architecture||[]).join(' → '))+' · cycles '+escapeHtml(ex.integration?.cycles||1)+' · '+escapeHtml(calledComponents)+' executed component call(s).</div></div>'+
+    '<div class="meta">Architecture: '+escapeHtml(architectureArray(ex.architecture||currentCore.architecture).join(' → '))+' · cycles '+escapeHtml(ex.integration?.cycles||1)+' · '+escapeHtml(calledComponents)+' executed component call(s).</div></div>'+
     '<div><div class="trace-badge">'+escapeHtml(role.replaceAll('_',' '))+'</div><div class="run-id">'+escapeHtml(result.run_id)+'</div></div></div>';
 
   let rows=[];
