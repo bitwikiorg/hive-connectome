@@ -1400,9 +1400,11 @@ class HivePipeline:
             "provider_call_ids": provider_call_ids,
             "resolved_worker": worker.model_dump(mode="json"),
             "recording_level": worker.outputs.recording_level,
+            "feedback_enabled": feedback_enabled,
             "integration": {
                 "architecture": architecture,
                 "cycles": integration_cycles,
+                "harness_passes": integration_cycles,
                 "trace": cycle_trace,
             },
             "jev": {
@@ -1444,6 +1446,21 @@ class HivePipeline:
                 "metadata": fly.metadata,
             }
 
+        primary_receipt = self._record_primary_execution(
+            run_id=run_id,
+            worker=worker,
+            event_id=req.event.id,
+            architecture=architecture,
+            harness_passes=integration_cycles,
+            stage_execution=stage_execution,
+            bridges=all_bridge_trace,
+        )
+        if primary_receipt is not None:
+            execution["primary_execution_receipt"] = primary_receipt
+
+        task_result = self._task_result(decisions, llm)
+        unresolved = list(task_result.unresolved)
+
         result = PipelineResult(
             run_id=run_id,
             event=req.event,
@@ -1456,6 +1473,7 @@ class HivePipeline:
             modulation=modulation,
             labels=labels if worker.outputs.write_labels else [],
             unresolved=unresolved,
+            task_result=task_result,
             execution=execution,
         )
         if worker.outputs.save_run:
