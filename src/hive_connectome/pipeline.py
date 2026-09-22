@@ -872,7 +872,7 @@ class HivePipeline:
             self.db.insert_event(req.event.model_dump(mode="json"))
 
         engines = self._engines(worker, resolved_stages)
-        integration_cycles = int(
+        harness_passes = int(
             req.harness_passes or worker.runtime.resolved_harness_passes
         )
 
@@ -894,7 +894,7 @@ class HivePipeline:
         modulation = 0.0
         unresolved: list[str] = []
 
-        for cycle_index in range(integration_cycles):
+        for cycle_index in range(harness_passes):
             observations = {}
             pending_bridges: dict[str, list[dict[str, Any]]] = {}
             cycle_bridges: list[dict[str, Any]] = []
@@ -947,7 +947,7 @@ class HivePipeline:
                         "llm_enabled": llm_enabled,
                         "architecture": architecture,
                         "harness_pass": cycle_index + 1,
-                        "harness_passes": integration_cycles,
+                        "harness_passes": harness_passes,
                     },
                     "event": req.event.model_dump(mode="json"),
                     "neural_state": neural_state,
@@ -1015,7 +1015,7 @@ class HivePipeline:
                     observation = engine.step(payload)
                     observation.metadata["input_encoder_override"] = input_encoder
                     observation.metadata["harness_pass"] = cycle_index + 1
-                    observation.metadata["harness_passes"] = integration_cycles
+                    observation.metadata["harness_passes"] = harness_passes
                     observation.metadata["architecture_tag"] = tag
                     observation.metadata["architecture_index"] = component_index
 
@@ -1093,7 +1093,7 @@ class HivePipeline:
                         target_engine,
                         event=req.event.payload,
                     )
-                    trace["integration_cycle"] = cycle_index + 1
+                    trace["harness_pass"] = cycle_index + 1
                     trace["architecture_index"] = component_index
                     cycle_bridges.append(trace)
                     all_bridge_trace.append(trace)
@@ -1164,7 +1164,7 @@ class HivePipeline:
                         latest_jev_context_artifact = decision_state_artifact
                         self._store_transport(
                             run_id,
-                            f"jev:cycle-{cycle_index + 1}:component-{component_index}",
+                            f"jev:pass-{cycle_index + 1}:component-{component_index}",
                             decisions.transport,
                         )
                         call_id = decisions.transport.get("call_id")
@@ -1175,7 +1175,7 @@ class HivePipeline:
                     except Exception as exc:
                         self._store_provider_error(
                             run_id,
-                            f"jev:cycle-{cycle_index + 1}:component-{component_index}",
+                            f"jev:pass-{cycle_index + 1}:component-{component_index}",
                             exc,
                         )
                         raise
@@ -1241,7 +1241,7 @@ class HivePipeline:
                         except Exception as exc:
                             self._store_provider_error(
                                 run_id,
-                                f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                                f"llm:pass-{cycle_index + 1}:component-{component_index}",
                                 exc,
                             )
                             raise
@@ -1260,7 +1260,7 @@ class HivePipeline:
                         except Exception as exc:
                             self._store_provider_error(
                                 run_id,
-                                f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                                f"llm:pass-{cycle_index + 1}:component-{component_index}",
                                 exc,
                             )
                             raise
@@ -1268,7 +1268,7 @@ class HivePipeline:
                     llm_call_count += 1
                     self._store_transport(
                         run_id,
-                        f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                        f"llm:pass-{cycle_index + 1}:component-{component_index}",
                         llm.transport,
                     )
                     call_id = llm.transport.get("call_id")
@@ -1358,7 +1358,7 @@ class HivePipeline:
                         verification_call_count += 1
                         self._store_transport(
                             run_id,
-                            f"jev-verification:cycle-{cycle_index + 1}:component-{component_index}",
+                            f"jev-verification:pass-{cycle_index + 1}:component-{component_index}",
                             verification.transport,
                         )
                         call_id = verification.transport.get("call_id")
@@ -1368,7 +1368,7 @@ class HivePipeline:
                     except Exception as exc:
                         self._store_provider_error(
                             run_id,
-                            f"jev-verification:cycle-{cycle_index + 1}:component-{component_index}",
+                            f"jev-verification:pass-{cycle_index + 1}:component-{component_index}",
                             exc,
                         )
                         raise
@@ -1430,7 +1430,7 @@ class HivePipeline:
                     )
                     apply_now = bool(
                         feedback_sources
-                        and (future_neural or cycle_index < integration_cycles - 1)
+                        and (future_neural or cycle_index < harness_passes - 1)
                     )
 
                     target_modulations: dict[str, float] = {}
@@ -1475,7 +1475,7 @@ class HivePipeline:
                     )
 
             cycle_trace.append({
-                "cycle": cycle_index + 1,
+                "pass": cycle_index + 1,
                 "architecture": architecture,
                 "components": components,
                 "jev_called": any(
@@ -1612,7 +1612,7 @@ class HivePipeline:
             },
             "integration": {
                 "architecture": architecture,
-                "harness_passes": integration_cycles,
+                "harness_passes": harness_passes,
                 "trace": cycle_trace,
             },
             "jev": {
@@ -1660,7 +1660,7 @@ class HivePipeline:
             resolved_stages=resolved_stages,
             event_id=req.event.id,
             architecture=architecture,
-            harness_passes=integration_cycles,
+            harness_passes=harness_passes,
             stage_execution=stage_execution,
             bridges=all_bridge_trace,
             input_encoders=dict(req.input_encoders),
