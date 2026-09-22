@@ -2,6 +2,16 @@
 
 This file is the human-readable canonical state of the experiment. The machine-readable contract is `config/experiment_contract.json`.
 
+## CURRENT COMPOSITION AUDIT
+
+The architecture/composition audit dated 2026-09-22 is canonical for the next implementation phase:
+
+- `docs/AUDIT.md` — full gap and scientific-integrity audit;
+- `docs/NEXT_SESSION.md` — exact next-session implementation handoff;
+- `docs/ROADMAP.md` — roadmap realigned around composition experiments rather than a general agent harness.
+
+The immediate goal is to make staged vs recurrent architecture comparisons causally interpretable before adding new processor types.
+
 ## HYDRATE — what the study actually is
 
 The primary experiment is:
