@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import statistics
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -113,22 +115,49 @@ def summarize_eval(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     summary: dict[str, Any] = {}
     for name, items in grouped.items():
-        scored = [x for x in items if x.get("task_score") is not None]
+        scored = [float(x["task_score"]) for x in items if x.get("task_score") is not None]
         route_scored = [x for x in items if x.get("route_correct") is not None]
+        latencies = [float(x["latency_ms"]) for x in items]
+        n = len(items)
+        task_std = statistics.pstdev(scored) if len(scored) > 1 else (0.0 if scored else None)
+        task_se = (
+            task_std / math.sqrt(len(scored))
+            if task_std is not None and scored
+            else None
+        )
         summary[name] = {
-            "cases": len(items),
-            "task_score": (
-                sum(float(x["task_score"]) for x in scored) / len(scored)
-                if scored else None
-            ),
+            "cases": n,
+            "scored_cases": len(scored),
+            "task_score": (sum(scored) / len(scored) if scored else None),
+            "task_score_std": task_std,
+            "task_score_se": task_se,
             "route_accuracy": (
                 sum(bool(x["route_correct"]) for x in route_scored) / len(route_scored)
                 if route_scored else None
             ),
-            "mean_latency_ms": sum(float(x["latency_ms"]) for x in items) / len(items),
+            "mean_latency_ms": sum(latencies) / len(latencies) if latencies else None,
+            "latency_std_ms": statistics.pstdev(latencies) if len(latencies) > 1 else (0.0 if latencies else None),
             "llm_calls": sum(int(x.get("llm_calls", 1 if x.get("llm_called") else 0)) for x in items),
             "jev_calls": sum(int(x.get("jev_calls", 1 if x.get("jev_called") else 0)) for x in items),
-            "neural_passes": sum(int(x.get("harness_passes") or 1) for x in items),
+            "neural_stage_calls": sum(int(x.get("neural_stage_calls") or 0) for x in items),
+            "harness_passes_total": sum(int(x.get("harness_passes") or 1) for x in items),
+            "llm_calls_per_case": (
+                sum(int(x.get("llm_calls", 1 if x.get("llm_called") else 0)) for x in items) / n
+                if n else None
+            ),
+            "jev_calls_per_case": (
+                sum(int(x.get("jev_calls", 1 if x.get("jev_called") else 0)) for x in items) / n
+                if n else None
+            ),
+            "neural_stage_calls_per_case": (
+                sum(int(x.get("neural_stage_calls") or 0) for x in items) / n
+                if n else None
+            ),
+            "harness_passes_per_case": (
+                sum(int(x.get("harness_passes") or 1) for x in items) / n
+                if n else None
+            ),
             "failures": sum(1 for x in items if x.get("error")),
         }
     return summary
+
