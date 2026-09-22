@@ -446,8 +446,7 @@ class HivePipeline:
             self.db.insert_event(req.event.model_dump(mode="json"))
 
         engines = self._engines(worker)
-        provider_active = jev_active or llm_active
-        integration_cycles = worker.runtime.integration_cycles if provider_active else 1
+        integration_cycles = worker.runtime.integration_cycles
 
         previous_readout_states = {
             stage_id: snapshot_state(engine)
