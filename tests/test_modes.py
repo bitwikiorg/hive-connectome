@@ -26,7 +26,7 @@ class FakeLLM:
         self.calls = 0
     async def chat(self, model, prompt, context, temperature=0.2):
         self.calls += 1
-        return LLMResult(provider="lmstudio",model=model,text="ok")
+        return LLMResult(provider="lmstudio",model=model,text='{"analysis":"ok","unresolved":[],"neural_feedback":0.4}')
 
 
 def make(tmp_path):
@@ -59,7 +59,8 @@ async def test_brain_llm_calls_llm_without_jev(tmp_path):
     ))
     assert out.decisions.provider=="brain-readout"
     assert out.llm is not None
-    assert lm.calls==1
+    assert lm.calls==2
+    assert out.execution["integration"]["cycles"]==2
     p.db.close()
 
 
@@ -77,15 +78,17 @@ async def test_brain_jev_does_not_call_llm(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_jev_gates_llm(tmp_path):
+async def test_jev_and_llm_execute_together(tmp_path):
     p,lm=make(tmp_path)
     out=await p.run(PipelineRequest(
         worker_id="scout",jev_enabled=True,llm_enabled=True,
         event=EventEnvelope(payload={"x":1})
     ))
     assert out.decisions.provider=="venice"
-    assert out.llm is None
-    assert lm.calls==0
+    assert out.llm is not None
+    assert lm.calls==2
+    assert out.execution["integration"]["cycles"]==2
+    assert all(item["jev_called"] and item["llm_called"] for item in out.execution["integration"]["trace"])
     p.db.close()
 
 class FakeVeniceChat:
@@ -93,7 +96,7 @@ class FakeVeniceChat:
         self.calls=[]
     async def chat(self, model, prompt, context, temperature=0.2):
         self.calls.append((model,prompt,temperature))
-        return LLMResult(provider="venice",model=model,text="venice-ok")
+        return LLMResult(provider="venice",model=model,text='{"analysis":"venice-ok","unresolved":[],"neural_feedback":0.2}')
 
 
 @pytest.mark.asyncio
