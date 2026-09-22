@@ -423,6 +423,10 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
 
     @app.post("/api/evals/run")
     async def run_eval(req: EvalRequest):
+        try:
+            worker_store.get(req.worker_id)
+        except KeyError:
+            raise HTTPException(404, "worker not found")
         experiment_run_id = str(uuid4())
         task_set_hash = canonical_task_set_hash(req.cases)
         variants = req.resolved_variants()
