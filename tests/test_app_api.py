@@ -159,6 +159,51 @@ def test_eval_same_worker_toggle_matrix(client):
     assert client.post("/api/evals/run", json={"worker_id": "missing", "cases": []}).status_code == 404
 
 
+
+def test_eval_records_counterbalanced_order_and_compute_signature(client):
+    response = client.post(
+        "/api/evals/run",
+        json={
+            "worker_id": "scout",
+            "cases": [{
+                "id": "case-1",
+                "event": {
+                    "source_id": "eval",
+                    "kind": "eval",
+                    "payload": {"x": 1},
+                },
+            }],
+            "variants": [
+                {
+                    "id": "a",
+                    "jev": False,
+                    "llm": False,
+                    "harness_passes": 1,
+                    "feedback_enabled": False,
+                },
+                {
+                    "id": "b",
+                    "jev": False,
+                    "llm": False,
+                    "harness_passes": 1,
+                    "feedback_enabled": False,
+                },
+            ],
+            "repetitions": 2,
+            "condition_order_seed": 9,
+            "reset_policy": "reset_per_case",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["condition_orders"]) == 2
+    assert all(set(order) == {"a", "b"} for order in body["condition_orders"])
+    assert body["compute_matched"] is True
+    assert set(body["compute_signatures"]) == {"a", "b"}
+    assert body["summary"]["a"]["neural_stage_calls_per_case"] > 0
+    assert body["summary"]["a"]["task_score"] is None
+    assert client.get(f"/api/evals/runs/{body['experiment_run_id']}").status_code == 200
+
 def test_environment_modes(client, app, test_settings):
     assert client.post("/api/workers/scout/run-environment").status_code == 400
 
