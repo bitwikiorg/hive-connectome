@@ -548,7 +548,7 @@ class HivePipeline:
                 lines = lines[1:]
             if lines and lines[-1].strip() == fence:
                 lines = lines[:-1]
-            text = "\\n".join(lines).strip()
+            text = "\n".join(lines).strip()
         try:
             payload = json.loads(text)
         except Exception as exc:
