@@ -59,7 +59,10 @@
     "Inference output is not external action authority.",
     "The Core architecture is an ordered executable tag sequence; runtime, plan API, GUI, traces, and evaluation must resolve the same order.",
     "Matched ablations must preserve the same integration-cycle count unless cycle count itself is the declared experimental variable.",
-    "JEV/LLM calls require a fresh readout after the most recent neural or bridge change."
+    "JEV/LLM calls require a fresh readout after the most recent neural or bridge change.",
+    "JEV feedback and LLM feedback are independent sources with independent enable flags and target sets; neither may inherit the other's feedback configuration.",
+    "An LLM call may include a JEV decision only if a real JEV decision call executed earlier in the same integration cycle.",
+    "A jev_verify tag verifies the latest LLM output; a prior regular jev tag is optional, and any prior JEV decision is included only when it actually exists."
   ],
   "controls": [
     {
