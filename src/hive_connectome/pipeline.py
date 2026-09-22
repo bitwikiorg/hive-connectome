@@ -115,6 +115,8 @@ class HivePipeline:
                 threshold=float(stage.config.get("threshold", 1.0)),
                 substeps=int(stage.config.get("substeps", 5)),
                 sample_size=int(stage.config.get("sample_size", 2048)),
+                topology_transform=str(stage.config.get("topology_transform", "none")),
+                topology_seed=int(stage.config.get("topology_seed", 0)),
             )
 
         filename = stage.config.get("file")
@@ -140,15 +142,20 @@ class HivePipeline:
             json.dumps(stage.config, sort_keys=True, default=str),
         )
 
-    def _engines(self, worker: WorkerSpec) -> dict[str, MiniBrain]:
+    def _engines(
+        self,
+        worker: WorkerSpec,
+        stages: list[BrainStageSpec] | None = None,
+    ) -> dict[str, MiniBrain]:
+        resolved_stages = stages if stages is not None else worker.brain_chain
         bucket = self._brains.setdefault(worker.id, {})
-        active_ids = {stage.id for stage in worker.brain_chain if stage.enabled}
+        active_ids = {stage.id for stage in resolved_stages if stage.enabled}
         for stale in list(bucket):
             if stale not in active_ids:
                 del bucket[stale]
 
         result: dict[str, MiniBrain] = {}
-        for stage in worker.brain_chain:
+        for stage in resolved_stages:
             if not stage.enabled:
                 continue
             signature = self._stage_signature(stage)
