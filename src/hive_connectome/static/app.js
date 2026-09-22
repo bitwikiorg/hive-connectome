@@ -419,9 +419,21 @@ function renderRun(result,payload){
     rows.push(traceRow(index++,'Integration cycle '+cycle.cycle,'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
     for(const component of cycle.components||[]){
       const called=Boolean(component.called);
-      const badge=called?'executed':'skipped';
-      let title=component.tag||component.type||'component';
-      let body='<div class="meta">Type: '+escapeHtml(component.type||'unknown')+'</div>';
+      const typeLabel={
+        neural_stage:'neural stage',
+        bridge:'bridge',
+        neural_readout:'state readout',
+        jev:'JEV call',
+        llm:'LLM call',
+        jev_verification:'JEV verification',
+        feedback:'feedback'
+      }[component.type]||component.type||'component';
+      const stagePlan=component.type==='neural_stage'
+        ?currentPlan?.stages?.find(item=>item.id===component.tag)
+        :null;
+      let title=stagePlan?.name||component.tag||component.type||'component';
+      const badge=called?typeLabel+' · executed':typeLabel+' · skipped';
+      let body='<div class="meta">Tag: '+escapeHtml(component.tag||'—')+' · Type: '+escapeHtml(component.type||'unknown')+'</div>';
 
       if(!called){
         body+='<div class="meta">Reason: '+escapeHtml(component.reason||'disabled')+'</div>';
