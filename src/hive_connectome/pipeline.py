@@ -576,6 +576,95 @@ class HivePipeline:
             valid=True,
         )
 
+    def _record_primary_execution(
+        self,
+        *,
+        run_id: str,
+        worker: WorkerSpec,
+        event_id: str,
+        architecture: list[str],
+        harness_passes: int,
+        stage_execution: dict[str, Any],
+        bridges: list[dict[str, Any]],
+    ) -> str | None:
+        cook_stage = next(
+            (
+                stage for stage in worker.brain_chain
+                if stage.enabled
+                and stage.id in architecture
+                and stage.engine == "cook2019_connectome"
+            ),
+            None,
+        )
+        fly_stage = next(
+            (
+                stage for stage in worker.brain_chain
+                if stage.enabled
+                and stage.id in architecture
+                and stage.engine == "malecns_full_v1"
+            ),
+            None,
+        )
+        if cook_stage is None or fly_stage is None:
+            return None
+
+        matching_bridges = [
+            item for item in bridges
+            if item.get("source") == cook_stage.id
+            and item.get("target") == fly_stage.id
+            and item.get("stimulus_count") is not None
+        ]
+        if not matching_bridges:
+            return None
+
+        datasets: dict[str, Any] = {}
+        for stage in (cook_stage, fly_stage):
+            pack_id = stage.config.get("pack_id") or stage.connectome_pack
+            if not pack_id:
+                continue
+            receipt_path = self.data_dir / "connectomes" / str(pack_id) / "receipt.json"
+            if receipt_path.exists():
+                try:
+                    datasets[str(pack_id)] = json.loads(
+                        receipt_path.read_text(encoding="utf-8")
+                    )
+                except Exception as exc:
+                    datasets[str(pack_id)] = {"error": str(exc)}
+
+        worker_payload = worker.model_dump(mode="json")
+        receipt = {
+            "receipt_version": 2,
+            "kind": "primary_end_to_end",
+            "end_to_end": True,
+            "run_id": run_id,
+            "event_id": event_id,
+            "core_id": worker.id,
+            "worker_hash": hashlib.sha256(
+                _canonical_bytes(worker_payload)
+            ).hexdigest(),
+            "architecture": architecture,
+            "harness_passes": harness_passes,
+            "stages": {
+                cook_stage.id: stage_execution.get(cook_stage.id),
+                fly_stage.id: stage_execution.get(fly_stage.id),
+            },
+            "bridges": matching_bridges,
+            "datasets": datasets,
+        }
+
+        root = self.data_dir / "execution_receipts"
+        root.mkdir(parents=True, exist_ok=True)
+        run_target = root / f"primary--{run_id}.json"
+        latest_target = root / "primary--latest.json"
+        raw = json.dumps(receipt, indent=2, default=str)
+        run_tmp = run_target.with_suffix(".tmp")
+        run_tmp.write_text(raw, encoding="utf-8")
+        run_tmp.replace(run_target)
+        latest_tmp = latest_target.with_suffix(".tmp")
+        latest_tmp.write_text(raw, encoding="utf-8")
+        latest_tmp.replace(latest_target)
+        return str(run_target.relative_to(self.data_dir))
+
     async def run(self, req: PipelineRequest) -> PipelineResult:
         run_id = str(uuid4())
         worker = self.workers.get(req.worker_id)
