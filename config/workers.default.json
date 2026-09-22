@@ -104,7 +104,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 25,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
@@ -211,7 +210,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 25,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
@@ -318,7 +316,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 10,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
@@ -426,7 +423,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 100,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
@@ -532,7 +528,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 25,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
@@ -638,7 +633,6 @@
         "persist_brain_state": true,
         "max_events_per_tick": 25,
         "enabled": false,
-        "integration_cycles": 2,
         "harness_passes": 2
       },
       "outputs": {
