@@ -203,7 +203,6 @@ def build_experiment_plan(
             "enabled": worker.llm.enabled,
             "provider": worker.llm.provider,
             "model": worker.llm.model or provider_config.get("default_llm_model"),
-            "activation": worker.llm.activation,
             "configured": llm_configured,
             "verify_with_jev": worker.llm.verify_with_jev,
             "feedback_to_brain": worker.llm.feedback_to_brain,
