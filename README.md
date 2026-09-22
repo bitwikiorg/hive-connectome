@@ -34,7 +34,7 @@ A saved **Core** defines one such composition. Its executable architecture is co
 
 The neural stage provides recurrent state and dynamics; task semantics still come from explicit encoders, readouts, prompts, and decision questions.
 
-JEV evaluates the event plus a whole-state representation derived from the complete executed neural substrate using bounded `noul`, `choice`, and `score` questions. When an LLM is enabled it also executes for every integration cycle and receives the same neural evidence plus JEV output. Their bounded feedback is applied before the same input is refined by the neural substrate. JEV and LLM remain independently switchable only so their contribution can be measured by ablation. Neural stages, bridges, readout, JEV, LLM, JEV verification, feedback, feedback sources/targets, and integration-cycle depth are all explicit experimental controls rather than hidden routing behavior.
+JEV evaluates the event plus a whole-state representation derived from the complete executed neural substrate using bounded `noul`, `choice`, and `score` questions. When an LLM is enabled it executes wherever its `llm` tag appears and receives the current whole-state neural evidence; it also receives a JEV decision only when a real JEV call ran earlier against that same readout. Their bounded feedback is applied before the same input is refined by the neural substrate. JEV and LLM remain independently switchable only so their contribution can be measured by ablation. Neural stages, bridges, readout, JEV, LLM, JEV verification, feedback, feedback sources/targets, and integration-cycle depth are all explicit experimental controls rather than hidden routing behavior.
 
 ## Worker experiment model
 
