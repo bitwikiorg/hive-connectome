@@ -280,7 +280,6 @@ function updateCoreControls(){
   currentCore.architecture=$('architectureTags').value.split(',').map(value=>value.trim()).filter(Boolean);
   const passes=Math.max(1,Math.min(8,Number($('integrationCycles').value)||1));
   currentCore.runtime.harness_passes=passes;
-  currentCore.runtime.integration_cycles=passes;
   currentCore.jev.enabled=$('jevEnabled').checked;
   currentCore.jev.model=$('jevModel').value.trim()||'jev-latest';
   currentCore.jev.feedback_to_brain=$('jevFeedback').checked;
