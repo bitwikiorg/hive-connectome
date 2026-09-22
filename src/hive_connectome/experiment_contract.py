@@ -70,6 +70,110 @@ def _execution_status(data_dir: Path, spec: dict[str, Any]) -> dict[str, Any]:
     return status
 
 
+
+def _primary_end_to_end_status(data_dir: Path, contract: dict[str, Any]) -> dict[str, Any]:
+    path = data_dir / "execution_receipts" / "primary--latest.json"
+    status: dict[str, Any] = {
+        "required": True,
+        "executed": False,
+        "receipt": str(path.relative_to(data_dir)),
+    }
+    if not path.exists():
+        return status
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {**status, "error": f"invalid primary execution receipt: {exc}"}
+
+    primary = contract["primary_pipeline"]
+    larva = primary["larva"]
+    bee = primary["bee"]
+    stages = receipt.get("stages") or {}
+    stage_items = [
+        (stage_id, value)
+        for stage_id, value in stages.items()
+        if isinstance(value, dict)
+    ]
+    larva_item = next(
+        ((stage_id, value) for stage_id, value in stage_items
+         if value.get("requested_engine") == larva["engine"]),
+        None,
+    )
+    bee_item = next(
+        ((stage_id, value) for stage_id, value in stage_items
+         if value.get("requested_engine") == bee["engine"]),
+        None,
+    )
+
+    valid = bool(receipt.get("end_to_end")) and larva_item is not None and bee_item is not None
+    mismatches: dict[str, Any] = {}
+
+    if bee_item is not None:
+        bee_meta = bee_item[1].get("metadata") or {}
+        expected = {
+            "node_count": bee.get("expected_neurons"),
+            "edge_count": bee.get("expected_directed_connections"),
+            "synaptic_contacts": bee.get("expected_synapses"),
+        }
+        for key, target in expected.items():
+            if target is None:
+                continue
+            observed = bee_meta.get(key)
+            if observed is None or int(observed) != int(target):
+                mismatches[f"bee.{key}"] = {
+                    "expected": int(target),
+                    "observed": observed,
+                }
+                valid = False
+        if not bool(bee_meta.get("full_connectome")):
+            mismatches["bee.full_connectome"] = {
+                "expected": True,
+                "observed": bee_meta.get("full_connectome"),
+            }
+            valid = False
+
+    matching_bridge = None
+    if larva_item is not None and bee_item is not None:
+        larva_id, bee_id = larva_item[0], bee_item[0]
+        for bridge in receipt.get("bridges") or []:
+            if (
+                bridge.get("source") == larva_id
+                and bridge.get("target") == bee_id
+                and bridge.get("engine") != "zero_bridge_v1"
+                and int(bridge.get("source_values_used") or 0) > 0
+            ):
+                matching_bridge = bridge
+                break
+    if matching_bridge is None:
+        valid = False
+        mismatches["bridge"] = "no executed non-null Cook -> MaleCNS bridge found"
+
+    datasets = receipt.get("datasets") or {}
+    for spec in (larva, bee):
+        pack_id = spec["pack_id"]
+        dataset = datasets.get(pack_id)
+        if not isinstance(dataset, dict) or dataset.get("error"):
+            valid = False
+            mismatches[f"dataset.{pack_id}"] = "verified install receipt missing"
+            continue
+        files = dataset.get("files") or []
+        if not files or any(not item.get("sha256") for item in files):
+            valid = False
+            mismatches[f"dataset.{pack_id}"] = "dataset receipt lacks SHA-256 evidence"
+
+    status.update({
+        "executed": bool(valid),
+        "run_id": receipt.get("run_id"),
+        "core_id": receipt.get("core_id"),
+        "worker_hash": receipt.get("worker_hash"),
+        "architecture": receipt.get("architecture"),
+        "harness_passes": receipt.get("harness_passes"),
+        "bridge": matching_bridge,
+        "mismatches": mismatches,
+    })
+    return status
+
+
 def experiment_readiness(
     contract: dict[str, Any],
     *,
@@ -88,6 +192,7 @@ def experiment_readiness(
     bee_engine_supported = bee["engine"] in supported_engines
     larva_execution = _execution_status(data_dir, larva)
     bee_execution = _execution_status(data_dir, bee)
+    primary_execution = _primary_end_to_end_status(data_dir, contract)
 
     blockers: list[str] = []
     if not larva_data["installed"]:
@@ -103,6 +208,10 @@ def experiment_readiness(
         blockers.append(f"full MaleCNS execution engine is not implemented: {bee['engine']}")
     if bee.get("execution_required") and not bee_execution["executed"]:
         blockers.append("full MaleCNS primary stage has not produced a valid execution receipt")
+    if not primary_execution["executed"]:
+        blockers.append(
+            "canonical full Cook → bridge → full MaleCNS pipeline has not produced one valid end-to-end execution receipt"
+        )
 
     ready = not blockers
     return {
@@ -123,7 +232,8 @@ def experiment_readiness(
                 "execution": bee_execution,
             },
         },
+        "end_to_end_execution": primary_execution,
         "blockers": blockers,
         "controls": contract.get("controls", []),
-        "note": "Primary readiness requires full Cook + full MaleCNS data, supported engines, and successful execution receipts. Controls cannot satisfy this gate.",
+        "note": "Primary readiness requires verified full Cook + full MaleCNS data, matching stage receipts, and one canonical end-to-end Cook → bridge → MaleCNS execution receipt. Controls cannot satisfy this gate.",
     }
