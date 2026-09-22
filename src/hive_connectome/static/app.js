@@ -247,6 +247,7 @@ function renderPlan(){
     if(stage.enabled && !tags.includes(stage.id)) warnings.push((p.name||stage.id)+' is enabled but omitted from the architecture tags.');
   }
   if($('jevEnabled').checked && tags.includes('jev') && !currentPlan.jev?.configured) warnings.push('JEV is tagged and enabled but Venice credentials are not configured.');
+  if($('jevEnabled').checked && $('llmEnabled').checked && $('llmVerify').checked && tags.includes('jev_verify') && !currentPlan.jev?.configured) warnings.push('JEV verification is tagged and enabled but Venice credentials are not configured.');
   if($('llmEnabled').checked && tags.includes('llm') && !$('llmModel').value.trim() && !providerState?.default_llm_model) warnings.push('LLM is tagged and enabled but no model is selected.');
   $('planWarnings').innerHTML=warnings.length
     ?[...new Set(warnings)].map(w=>'<div class="warning">'+escapeHtml(w)+'</div>').join('')
