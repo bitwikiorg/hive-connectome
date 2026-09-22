@@ -84,6 +84,8 @@ class PipelineRequest(BaseModel):
     input_encoders: dict[
         str, Literal["engine_default", "zero_v1"]
     ] = Field(default_factory=dict)
+    stage_engines: dict[str, str] = Field(default_factory=dict)
+    stage_config_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class TaskResult(BaseModel):
