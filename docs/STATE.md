@@ -76,6 +76,7 @@ As of v0.7:
 - Venice JEV / Venice chat / LM Studio proof-call receipts: **implemented**.
 - Whole-state neural representation for JEV/LLM context: **implemented**.
 - Same-input recurrent neural → JEV → LLM → feedback integration loop: **implemented**.
+- Ordered comma-tagged Core architecture with executable stage/bridge/readout/provider/feedback tags: **implemented**.
 - Experiment ZIP export with JSONL, CSV, provider receipts, execution receipts, and optional full state artifacts: **implemented**.
 - Primary readiness remains runtime-derived: **installed data and implemented code are not enough**.
 
@@ -109,7 +110,9 @@ The Windows first-run script now installs the full required pack and performs a 
 9. JEV/LLM context must be derived from the complete executed neural state; arbitrary first-N state excerpts are forbidden as the primary neural representation.
 10. If JEV or an LLM is enabled, it executes on every integration cycle or the run fails explicitly.
 11. JEV/LLM feedback must affect a same-input neural refinement cycle when integration_cycles > 1.
+12. Core architecture order is defined by executable component tags; the runtime, plan API, GUI, traces, and tests must resolve the same ordered sequence.
+13. A JEV/LLM call may not consume stale neural context: a readout must follow the most recent neural/bridge change before a provider call.
 
 ## ROLLBACK RULE
 
-Any change that makes a reduced graph satisfy `primary_experiment_ready`, calls the full MaleCNS dataset optional, describes a control result as the primary study, truncates the primary inference context to arbitrary neural excerpts, restores JEV-gated LLM execution, or prevents enabled inference members from participating in the same-input recurrent Core is semantic drift and must be rejected or rolled back.
+Any change that makes a reduced graph satisfy `primary_experiment_ready`, calls the full MaleCNS dataset optional, describes a control result as the primary study, truncates the primary inference context to arbitrary neural excerpts, restores JEV-gated LLM execution, or prevents enabled inference members from participating in the same-input recurrent Core, hardcodes a path that ignores the saved component-tag sequence, or reports a different architecture than the runtime actually executes is semantic drift and must be rejected or rolled back.
