@@ -493,6 +493,11 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                         ))
                         route = result.decisions.answers.get("route", {}).get("choice")
                         task_score = score_task_result(case, result.task_result, route)
+                        task_error = (
+                            None
+                            if result.task_result.valid
+                            else (result.task_result.error or "invalid task result")
+                        )
                         trace = result.execution.get("integration", {}).get("trace", [])
                         neural_stage_calls = sum(
                             1
@@ -534,7 +539,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "llm_calls": result.execution.get("llm", {}).get("calls", 0),
                             "neural_stage_calls": neural_stage_calls,
                             "unresolved": result.task_result.unresolved,
-                            "error": None,
+                            "error": task_error,
                         })
                     except Exception as exc:
                         rows.append({
