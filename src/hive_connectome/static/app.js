@@ -116,9 +116,13 @@ function syncControlsFromCore(){
   $('jevEnabled').checked=Boolean(currentCore.jev?.enabled);
   $('jevModel').value=currentCore.jev?.model||'jev-latest';
   $('jevFeedback').checked=Boolean(currentCore.jev?.feedback_to_brain);
+  $('jevFeedbackTargets').value=(currentCore.jev?.feedback_targets||[]).join(',');
   $('llmEnabled').checked=Boolean(currentCore.llm?.enabled);
   $('llmProvider').value=currentCore.llm?.provider||'lmstudio';
   $('llmModel').value=currentCore.llm?.model||'';
+  $('llmFeedback').checked=Boolean(currentCore.llm?.feedback_to_brain);
+  $('llmFeedbackTargets').value=(currentCore.llm?.feedback_targets||[]).join(',');
+  $('llmVerify').checked=Boolean(currentCore.llm?.verify_with_jev);
   $('recordingLevel').value=currentCore.outputs?.recording_level||'trace';
   $('persistState').checked=currentCore.runtime?.persist_brain_state!==false;
   $('experimentObjective').value=currentCore.experiment?.objective||'';
@@ -217,11 +221,15 @@ function renderPlan(){
       continue;
     }
     if(tag==='jev_verify'){
-      html+='<div class="pipeline-node external"><div class="node-type">Verification</div><strong>JEV verify</strong><div class="node-engine">Venice Decisions verification</div><div class="node-detail">Runs only when JEV + LLM + verification are enabled.</div></div>';
+      const verifyEnabled=$('jevEnabled').checked&&$('llmEnabled').checked&&$('llmVerify').checked;
+      html+='<div class="pipeline-node external'+(verifyEnabled?'':' disabled')+'"><div class="node-type">Verification</div><strong>JEV verify</strong><div class="node-engine">Venice Decisions verification</div><div class="node-detail">'+(verifyEnabled?'CALL':'SKIP')+' · verifies the latest LLM output; a prior regular JEV decision is optional.</div></div>';
       continue;
     }
     if(tag==='feedback'){
-      html+='<div class="pipeline-node"><div class="node-type">Recurrent adapter</div><strong>Feedback</strong><div class="node-engine">Bounded modulation into configured neural targets</div><div class="node-detail">Affects later neural tags in this cycle or the next integration cycle.</div></div>';
+      const sources=[];
+      if($('jevFeedback').checked) sources.push('JEV');
+      if($('llmFeedback').checked) sources.push('LLM');
+      html+='<div class="pipeline-node'+(sources.length?'':' disabled')+'"><div class="node-type">Recurrent adapter</div><strong>Feedback</strong><div class="node-engine">Independent bounded modulation from '+escapeHtml(sources.join(' + ')||'no enabled source')+'</div><div class="node-detail">Each source uses its own target set. Affects later neural tags in this cycle or the next integration cycle.</div></div>';
       continue;
     }
     html+='<div class="pipeline-node disabled"><div class="node-type">Unknown tag</div><strong>'+escapeHtml(tag)+'</strong><div class="node-engine">Will be rejected by backend validation</div></div>';
@@ -270,10 +278,14 @@ function updateCoreControls(){
   currentCore.jev.enabled=$('jevEnabled').checked;
   currentCore.jev.model=$('jevModel').value.trim()||'jev-latest';
   currentCore.jev.feedback_to_brain=$('jevFeedback').checked;
+  currentCore.jev.feedback_targets=$('jevFeedbackTargets').value.split(',').map(value=>value.trim()).filter(Boolean);
   currentCore.llm.enabled=$('llmEnabled').checked;
   currentCore.llm.provider=$('llmProvider').value;
   currentCore.llm.model=$('llmModel').value.trim()||null;
   currentCore.llm.activation='always';
+  currentCore.llm.feedback_to_brain=$('llmFeedback').checked;
+  currentCore.llm.feedback_targets=$('llmFeedbackTargets').value.split(',').map(value=>value.trim()).filter(Boolean);
+  currentCore.llm.verify_with_jev=$('llmVerify').checked;
   currentCore.outputs.recording_level=$('recordingLevel').value;
   currentCore.runtime.persist_brain_state=$('persistState').checked;
   updateLayerExplanations();
@@ -459,7 +471,10 @@ function renderRun(result,payload){
       }else if(component.type==='jev_verification'){
         body='<div class="meta">Real Venice verification call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'</div>';
       }else if(component.type==='feedback'){
-        body='<div class="meta">Bounded modulation '+escapeHtml(formatNumber(component.modulation))+' · '+(component.applied?'applied to '+escapeHtml((component.targets||[]).join(', ')):'not applied because no later same-input neural execution remained')+'</div>';
+        const sources=Object.entries(component.sources||{}).map(([name,spec])=>name+'='+formatNumber(spec.value)+'→'+((spec.targets||[]).join(',')||'all')).join(' · ');
+        const targets=Object.entries(component.target_modulations||{}).map(([name,value])=>name+'='+formatNumber(value)).join(' · ');
+        body='<div class="meta">Aggregate modulation '+escapeHtml(formatNumber(component.modulation))+' · sources '+escapeHtml(sources||'none')+'</div>'+
+          '<div class="meta">'+(component.applied?'Applied per neural target: '+escapeHtml(targets||'none'):'Not applied because no later same-input neural execution remained')+'</div>';
       }
       rows.push(traceRow(index++,title,badge,body,called?'success':''));
     }
