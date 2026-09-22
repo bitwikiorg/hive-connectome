@@ -6,31 +6,21 @@ A worker is a **complete experiment configuration**, not a JEV/LLM variant.
 Workerᵢ
   ├─ experiment objective + task prompt
   ├─ data environment
-  ├─ Larvaᵢ
-  ├─ Beeᵢ
+  ├─ ordered architecture tags
+  ├─ neural stages + explicit bridges
   ├─ JEV settings + questions + toggle
   ├─ LLM settings + prompt + toggle
   ├─ runtime / daemon / cron settings
   └─ outputs / next workers
 ```
 
-The basic neural unit remains:
+The worker executes its saved comma-tagged architecture in order. The default composition is:
 
 ```text
-Larvaᵢ → Beeᵢ
+worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback
 ```
 
-JEV and LLM are optional capabilities attached to that same worker:
-
-```text
-data environment
-      ↓
-Larvaᵢ → Beeᵢ
-      ↓
-    JEV? ──→ LLM?
-      ↓
-    output
-```
+Stage IDs and bridge IDs are executable tags. Reserved tags execute the whole-state readout, JEV, LLM, verification, and feedback adapters. Reordering/removing/repeating tags changes the computation. JEV/LLM toggles are independent ablations over the same saved architecture.
 
 ## Experimentation
 
@@ -45,7 +35,7 @@ JEV off / LLM on
 JEV on  / LLM on
 ```
 
-The data environment, prompts, brain settings, task, and expected output stay identical.
+The data environment, prompts, neural settings, architecture tags, integration-cycle count, task, and expected output stay identical.
 
 That makes JEV and LLM true ablations.
 
@@ -61,10 +51,11 @@ Each worker owns:
 - data environment
 - data-source bindings
 - browser/OCR settings where relevant
-- Larva engine/substrate/config
-- Bee engine/substrate/config
-- JEV model/questions/gate threshold/feedback behavior
-- LLM provider/model/prompt/activation/temperature
+- ordered executable architecture tags
+- neural stage engine/substrate/config
+- explicit bridge engine/config
+- JEV model/questions/toggle/feedback behavior
+- LLM provider/model/prompt/toggle/temperature
 - on-demand/daemon/cron runtime
 - state persistence
 - output persistence
