@@ -41,6 +41,13 @@ class HiveDB:
           json TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_provider_calls_run_id ON provider_calls(run_id);
+        CREATE TABLE IF NOT EXISTS experiment_runs (
+          id TEXT PRIMARY KEY,
+          timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          worker_id TEXT NOT NULL,
+          json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_experiment_runs_worker_id ON experiment_runs(worker_id);
         CREATE TABLE IF NOT EXISTS sources (
           id TEXT PRIMARY KEY,
           json TEXT NOT NULL,
@@ -117,6 +124,33 @@ class HiveDB:
                 "SELECT json FROM provider_calls WHERE run_id=? ORDER BY timestamp LIMIT ?", (run_id, limit)
             ).fetchall()
         return [json.loads(r["json"]) for r in rows]
+
+    def insert_experiment_run(self, record: dict[str, Any]) -> None:
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR REPLACE INTO experiment_runs(id,worker_id,json) VALUES(?,?,?)",
+                (record["experiment_run_id"], record["worker_id"], json.dumps(record)),
+            )
+
+    def get_experiment_run(self, experiment_run_id: str) -> dict[str, Any] | None:
+        row = self._db.execute(
+            "SELECT json FROM experiment_runs WHERE id=?",
+            (experiment_run_id,),
+        ).fetchone()
+        return json.loads(row["json"]) if row else None
+
+    def list_experiment_runs(self, limit: int = 100, worker_id: str | None = None) -> list[dict[str, Any]]:
+        if worker_id is None:
+            rows = self._db.execute(
+                "SELECT json FROM experiment_runs ORDER BY timestamp DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = self._db.execute(
+                "SELECT json FROM experiment_runs WHERE worker_id=? ORDER BY timestamp DESC LIMIT ?",
+                (worker_id, limit),
+            ).fetchall()
+        return [json.loads(row["json"]) for row in rows]
 
     def upsert_source(self, spec: dict[str, Any]) -> None:
         with self._lock, self._db:
