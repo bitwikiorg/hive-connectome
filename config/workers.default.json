@@ -103,7 +103,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 25,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
@@ -208,7 +209,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 25,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
@@ -313,7 +315,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 10,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
@@ -419,7 +422,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 100,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
@@ -523,7 +527,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 25,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
@@ -627,7 +632,8 @@
         "cron": null,
         "persist_brain_state": true,
         "max_events_per_tick": 25,
-        "enabled": false
+        "enabled": false,
+        "integration_cycles": 2
       },
       "outputs": {
         "save_event": true,
