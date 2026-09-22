@@ -133,22 +133,39 @@ def _primary_end_to_end_status(data_dir: Path, contract: dict[str, Any]) -> dict
             valid = False
 
     matching_bridge = None
+    canonical_bridge_engine = (
+        primary.get("bridge", {}).get("engine")
+        or "whole_state_projection_v1"
+    )
     if larva_item is not None and bee_item is not None:
         larva_id, bee_id = larva_item[0], bee_item[0]
         for bridge in receipt.get("bridges") or []:
             if (
                 bridge.get("source") == larva_id
                 and bridge.get("target") == bee_id
-                and bridge.get("engine") != "zero_bridge_v1"
+                and bridge.get("engine") == canonical_bridge_engine
                 and int(bridge.get("source_values_used") or 0) > 0
             ):
                 matching_bridge = bridge
                 break
     if matching_bridge is None:
         valid = False
-        mismatches["bridge"] = "no executed non-null Cook -> MaleCNS bridge found"
+        mismatches["bridge"] = (
+            f"no executed canonical Cook -> MaleCNS bridge found: {canonical_bridge_engine}"
+        )
+
+    if not receipt.get("resolved_config_hash"):
+        valid = False
+        mismatches["resolved_config_hash"] = "missing"
+
+    if (receipt.get("input_encoders") or {}).get(
+        larva_item[0] if larva_item else "", "engine_default"
+    ) != "engine_default":
+        valid = False
+        mismatches["larva.input_encoder"] = "primary readiness requires engine_default"
 
     datasets = receipt.get("datasets") or {}
+    dataset_hashes: dict[str, dict[str, str]] = {}
     for spec in (larva, bee):
         pack_id = spec["pack_id"]
         dataset = datasets.get(pack_id)
@@ -160,12 +177,51 @@ def _primary_end_to_end_status(data_dir: Path, contract: dict[str, Any]) -> dict
         if not files or any(not item.get("sha256") for item in files):
             valid = False
             mismatches[f"dataset.{pack_id}"] = "dataset receipt lacks SHA-256 evidence"
+            continue
+        dataset_hashes[pack_id] = {
+            str(item.get("name")): str(item.get("sha256"))
+            for item in files
+            if item.get("name") and item.get("sha256")
+        }
+
+    if larva_item is not None:
+        larva_meta = larva_item[1].get("metadata") or {}
+        installed = dataset_hashes.get(larva["pack_id"], {})
+        expected_cook_hash = installed.get("cook_2020_adjacency.xlsx")
+        observed_cook_hash = larva_meta.get("source_sha256")
+        if not expected_cook_hash or observed_cook_hash != expected_cook_hash:
+            valid = False
+            mismatches["larva.source_sha256"] = {
+                "expected": expected_cook_hash,
+                "observed": observed_cook_hash,
+            }
+
+    if bee_item is not None:
+        bee_meta = bee_item[1].get("metadata") or {}
+        installed = dataset_hashes.get(bee["pack_id"], {})
+        compiled_sources = bee_meta.get("compiled_source_hashes") or {}
+        for name, expected_hash in installed.items():
+            observed_hash = compiled_sources.get(name)
+            if observed_hash != expected_hash:
+                valid = False
+                mismatches[f"bee.compiled_source_hashes.{name}"] = {
+                    "expected": expected_hash,
+                    "observed": observed_hash,
+                }
+        compiled_arrays = bee_meta.get("compiled_array_hashes") or {}
+        if not compiled_arrays or any(not value for value in compiled_arrays.values()):
+            valid = False
+            mismatches["bee.compiled_array_hashes"] = "missing compiled array hash evidence"
+        if not bee_meta.get("compiled_manifest_sha256"):
+            valid = False
+            mismatches["bee.compiled_manifest_sha256"] = "missing"
 
     status.update({
         "executed": bool(valid),
         "run_id": receipt.get("run_id"),
         "core_id": receipt.get("core_id"),
         "worker_hash": receipt.get("worker_hash"),
+        "resolved_config_hash": receipt.get("resolved_config_hash"),
         "architecture": receipt.get("architecture"),
         "harness_passes": receipt.get("harness_passes"),
         "bridge": matching_bridge,
