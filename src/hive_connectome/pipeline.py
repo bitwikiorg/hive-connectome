@@ -582,6 +582,8 @@ class HivePipeline:
                         "called": True,
                         "engine": observation.engine,
                         "step": observation.step,
+                        "metrics": observation.metrics,
+                        "state_hash": observation.metadata.get("state_hash"),
                     })
                     continue
 
@@ -642,6 +644,8 @@ class HivePipeline:
                         "source": bridge.source,
                         "target": bridge.target,
                         "engine": bridge.engine,
+                        "stimulus_count": trace.get("stimulus_count", 0),
+                        "source_step": trace.get("source_step"),
                     })
                     continue
 
