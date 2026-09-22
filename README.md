@@ -28,7 +28,7 @@ bounded recurrent feedback
 RECORDED RESULT + TRACE + EXPORT
 ```
 
-A saved **Core** defines one such composition. A **Hive** chains multiple Cores only when multi-Core experiments are desired. The GUI resolves the Core through the backend, shows the exact path before execution, then renders the stages that actually executed and keeps raw JSON behind an advanced debugging view.
+A saved **Core** defines one such composition. Its executable architecture is comma-taggable—for example `worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback`—and HIVE executes those tags in that exact order. Reordering/removing/repeating tags changes the experimental architecture. A **Hive** chains multiple Cores only when multi-Core experiments are desired. The GUI resolves the Core through the backend, shows the exact tagged path before execution, then renders the component calls that actually executed and keeps raw JSON behind an advanced debugging view.
 
 ## Why JEV sits next to neural state
 
