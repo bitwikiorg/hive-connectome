@@ -26,6 +26,7 @@ from hive_connectome.schemas import (
     NeuralObservation,
     PipelineRequest,
     PipelineResult,
+    TaskResult,
 )
 from hive_connectome.workers import WorkerSpec, WorkerStore
 
@@ -174,23 +175,28 @@ class HivePipeline:
             id=f"{source}-to-{target}",
             source=source,
             target=target,
-            engine="state_projection_v1",
-            config={"source_excerpt": 32, "target_count": 24, "gain": 1.0},
+            engine="whole_state_projection_v1",
+            config={"target_count": 24, "gain": 1.0},
         )
 
     def _bridge_payload(
         self,
         bridge: BridgeSpec,
         source: NeuralObservation,
+        source_engine: MiniBrain,
         target_engine: MiniBrain,
         *,
         event: Any,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        excerpt_n = max(1, int(bridge.config.get("source_excerpt", 32)))
         target_count = max(1, int(bridge.config.get("target_count", 24)))
         gain = float(bridge.config.get("gain", 1.0))
         candidates = self._target_candidates(target_engine)
-        source_values = source.state_vector[:excerpt_n]
+        full_source = snapshot_state(source_engine, source)
+        full_values = full_source.astype(float).tolist()
+        full_hash = hashlib.sha256(full_source.tobytes()).hexdigest()
+        excerpt_n = max(1, int(bridge.config.get("source_excerpt", 32)))
+        legacy_values = full_values[:excerpt_n]
+
         trace: dict[str, Any] = {
             "id": bridge.id,
             "source": bridge.source,
@@ -198,7 +204,8 @@ class HivePipeline:
             "engine": bridge.engine,
             "source_step": source.step,
             "source_engine": source.engine,
-            "source_excerpt": source_values[:16],
+            "source_state_hash": full_hash,
+            "source_values_available": len(full_values),
             "source_metrics": source.metrics,
         }
 
@@ -208,32 +215,91 @@ class HivePipeline:
                 "upstream": {
                     "stage": bridge.source,
                     "metrics": source.metrics,
-                    "state_excerpt": source_values,
+                    "state_hash": full_hash,
+                    "state": full_values,
                 },
             }
+            trace["source_values_used"] = len(full_values)
             trace["stimulus_count"] = 0
             trace["payload_hash"] = hashlib.sha256(_canonical_bytes(payload)).hexdigest()
             return payload, trace
 
-        if not candidates or not source_values:
+        if bridge.engine == "zero_bridge_v1":
+            trace["source_values_used"] = len(full_values)
+            trace["stimulus_count"] = 0
+            trace["stimulus_hash"] = hashlib.sha256(b"[]").hexdigest()
+            return {"event": event, "upstream_stage": bridge.source, "__hive_stimulus__": []}, trace
+
+        if not candidates or not full_values:
+            trace["source_values_used"] = 0
             trace["stimulus_count"] = 0
             return {"event": event, "__hive_stimulus__": []}, trace
 
         drives: dict[int, float] = {}
+
         if bridge.engine == "state_projection_v1":
+            # Explicit legacy control: reproduces the old first-N handoff.
+            source_values = legacy_values
+            trace["source_values_used"] = len(source_values)
+            trace["source_excerpt"] = source_values[:16]
             for i, value in enumerate(source_values[:target_count]):
-                digest = hashlib.sha256(f"{bridge.id}:{i}".encode("utf-8")).digest()
+                digest = hashlib.sha256(f"{bridge.id}:legacy:{i}".encode("utf-8")).digest()
                 idx = candidates[int.from_bytes(digest[:4], "big") % len(candidates)]
                 amplitude = max(-4.0, min(4.0, float(value) * gain))
                 drives[idx] = max(-4.0, min(4.0, drives.get(idx, 0.0) + amplitude))
+
+        elif bridge.engine == "whole_state_projection_v1":
+            # Every source unit contributes exactly once. Contiguous bins retain
+            # broad source-state structure; deterministic hashing only chooses
+            # which target candidate receives each bin.
+            trace["source_values_used"] = len(full_values)
+            bins = max(1, min(target_count, len(full_values), len(candidates)))
+            for bucket in range(bins):
+                start_i = (bucket * len(full_values)) // bins
+                end_i = ((bucket + 1) * len(full_values)) // bins
+                block = full_values[start_i:end_i]
+                if not block:
+                    continue
+                value = sum(float(x) for x in block) / len(block)
+                digest = hashlib.sha256(
+                    f"{bridge.id}:whole:{bucket}".encode("utf-8")
+                ).digest()
+                idx = candidates[int.from_bytes(digest[:4], "big") % len(candidates)]
+                amplitude = max(-4.0, min(4.0, value * gain))
+                drives[idx] = max(-4.0, min(4.0, drives.get(idx, 0.0) + amplitude))
+
+        elif bridge.engine == "random_projection_v1":
+            # Deterministic signed random projection control. It uses the whole
+            # source state but intentionally destroys source ordering semantics.
+            trace["source_values_used"] = len(full_values)
+            seed = str(bridge.config.get("seed", 0))
+            slots = max(1, min(target_count, len(candidates)))
+            accum = [0.0] * slots
+            norm = math.sqrt(max(1, len(full_values)))
+            for i, value in enumerate(full_values):
+                digest = hashlib.sha256(
+                    f"{bridge.id}:random:{seed}:{i}".encode("utf-8")
+                ).digest()
+                slot = int.from_bytes(digest[:4], "big") % slots
+                sign = -1.0 if digest[4] & 1 else 1.0
+                accum[slot] += float(value) * sign / norm
+            for slot, value in enumerate(accum):
+                digest = hashlib.sha256(
+                    f"{bridge.id}:random-target:{seed}:{slot}".encode("utf-8")
+                ).digest()
+                idx = candidates[int.from_bytes(digest[:4], "big") % len(candidates)]
+                amplitude = max(-4.0, min(4.0, value * gain))
+                drives[idx] = max(-4.0, min(4.0, drives.get(idx, 0.0) + amplitude))
+
         elif bridge.engine == "hash_projection_v1":
-            seed = {
+            trace["source_values_used"] = len(full_values)
+            seed_payload = {
                 "bridge": bridge.id,
                 "event": event,
                 "metrics": source.metrics,
-                "state_excerpt": source_values,
+                "source_state_hash": full_hash,
             }
-            digest = hashlib.sha256(_canonical_bytes(seed)).digest()
+            digest = hashlib.sha256(_canonical_bytes(seed_payload)).digest()
             used: set[int] = set()
             for i in range(min(target_count, len(candidates))):
                 block = hashlib.sha256(digest + i.to_bytes(2, "big")).digest()
