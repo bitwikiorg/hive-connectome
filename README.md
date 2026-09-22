@@ -14,15 +14,16 @@ The primary GUI is an experiment instrument, not an AI-assistant task menu:
 ```text
 INPUT
   ↓
-C. elegans connectome          optional
+configured neural chain
   ↓
-explicit bridge
+whole-state neural representation
   ↓
-MaleCNS connectome             optional
+JEV                            independently ablatable
   ↓
-JEV / fixed readout            independently switchable
+LLM                            independently ablatable
   ↓
-LLM                            independently switchable
+bounded recurrent feedback
+  ↺ same-input neural refinement
   ↓
 RECORDED RESULT + TRACE + EXPORT
 ```
@@ -33,7 +34,7 @@ A saved **Core** defines one such composition. A **Hive** chains multiple Cores 
 
 The neural stage provides recurrent state and dynamics; task semantics still come from explicit encoders, readouts, prompts, and decision questions.
 
-JEV can evaluate the combined event + neural observation as bounded `noul`, `choice`, and `score` questions. An LLM is optional and can be used for open-ended interpretation when the experiment calls for it. The two are independently switchable so their contribution can be measured rather than assumed.
+JEV evaluates the event plus a whole-state representation derived from the complete executed neural substrate using bounded `noul`, `choice`, and `score` questions. When an LLM is enabled it also executes for every integration cycle and receives the same neural evidence plus JEV output. Their bounded feedback is applied before the same input is refined by the neural substrate. JEV and LLM remain independently switchable only so their contribution can be measured by ablation.
 
 ## Worker experiment model
 
