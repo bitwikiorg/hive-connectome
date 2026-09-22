@@ -3,194 +3,98 @@
 Date prepared: 2026-09-22  
 Canonical audit: `docs/AUDIT.md`
 
-## Do not change the project goal
+## Project boundary
 
-HIVE is **not currently a full agent harness**.
+HIVE is not currently a full agent harness.
 
-The near-term project is:
+It is an experimental composition lab for testing staged and recurrent combinations of neural substrates, JEV, LLMs, and later other processors.
 
-> Build loops and staged calls that let us experimentally compare different compositions of neural substrates, JEV, LLMs, and later other processors.
+The software integrity pass is complete enough to begin controlled pilot experiments.
 
-A future minimal agent harness may reuse successful HIVE composition patterns, but terminal/tool autonomy is not the current milestone.
+## Start here
 
-## Start the next session here
-
-Read, in order:
+Read:
 
 1. `docs/AUDIT.md`
 2. `docs/STATE.md`
 3. `docs/ARCHITECTURE.md`
-4. `src/hive_connectome/evals.py`
-5. `src/hive_connectome/app.py` — `/api/evals/run`
-6. `src/hive_connectome/pipeline.py`
-7. `src/hive_connectome/workers.py`
+4. `docs/EVALUATION.md`
 
-Do not start by adding new models/components.
+Do not start by adding embeddings, rerankers, tools, or more agent infrastructure.
 
-## First implementation target
+## First next-session objective
 
-The first target should be **experiment truth**, not new architecture features.
+Run a **small controlled pilot on the existing fixture/control substrates** to prove the experiment protocol end to end before spending time on the full target-machine graph.
 
-Implement a minimal composition-comparison harness with:
-
-### A. TaskResult
-
-A canonical architecture-independent final result, roughly:
+Freeze one tiny deterministic task set and compare at least:
 
 ```text
-answer
-structured_output
-confidence (optional)
-evidence refs
-unresolved
+A  one-pass feed-forward
+B  repeated passes, feedback off
+C  repeated passes, feedback on
+D  zero bridge
+E  random bridge
+F  zero root input
+G  synthetic-stage control
 ```
 
-The exact schema can be task-specific, but every architecture must expose something the same scorer can evaluate.
-
-### B. ArchitectureVariant
-
-A variant should freeze at minimum:
+Where applicable also run:
 
 ```text
-variant id
-architecture tags/order
-neural substeps/settings
-harness passes
-feedback enabled
-feedback sources + targets
-bridge config
-readout config
-JEV config/model/questions
-LLM config/model/prompt
-reset/checkpoint policy
+Neural only
+Neural + JEV
+Neural + LLM
+Neural + JEV + LLM
 ```
 
-Compute a deterministic config hash.
+Use the same cases and scorer across variants.
 
-### C. ExperimentRun manifest
+## Required pilot settings
 
-Persist one object binding:
+For independent cases:
 
 ```text
-experiment id
-task-set hash
-variant hashes
-run IDs
-case IDs
-condition order
-repetition
-scorer/version
-timestamps
+reset_policy = reset_per_case
+repetitions >= 1 for deterministic controls
+repetitions > 1 for stochastic external models
+condition_order_seed = fixed integer
 ```
 
-### D. Reset semantics
+Record and inspect:
 
-Independent benchmark cases must start from the same state.
+- task-set hash;
+- variant hash;
+- exact architecture;
+- harness passes;
+- feedback setting;
+- bridge/input/stage overrides;
+- state/context artifacts;
+- provider receipts where enabled;
+- task score;
+- uncertainty;
+- compute signatures;
+- `compute_matched`.
 
-Support explicit modes:
+The pilot is successful when two genuinely different variants can be replayed and compared without hidden state/config differences.
 
-```text
-reset_per_case
-restore_checkpoint_per_case
-persistent_sequence
-```
+## Then move to the primary run
 
-## Second implementation target
+On the target machine:
 
-Fix the primary biological handoff.
+1. install/verify the pinned Cook and MaleCNS datasets;
+2. run canonical `primary-full`;
+3. confirm exact MaleCNS counts:
+   - 166,700 neurons;
+   - 25,582,938 directed connections;
+   - 124,177,617 synaptic contacts;
+4. confirm full per-pass recordings exist;
+5. confirm the end-to-end receipt binds source + compiled hashes;
+6. confirm `primary_experiment_ready = true` only for the canonical unshuffled whole-state bridge path;
+7. separately exercise authenticated JEV/LLM variants.
 
-The current canonical bridge still uses `source.state_vector[:32]` and at most 24 target drives.
+## First real hypothesis family
 
-Do not replace it with another unexplained compression. Make bridge strategies explicit and testable.
-
-At minimum compare:
-
-```text
-legacy excerpt projection       control
-whole-state deterministic projection
-random projection control
-zero/null bridge
-```
-
-Later semantic/learned encoders can be added separately.
-
-## Third implementation target
-
-Separate recurrence concepts in configuration.
-
-Do not let one variable represent all of these:
-
-```text
-neural substeps
-harness passes
-cross-component feedback
-```
-
-A clean feed-forward run means:
-
-```text
-harness_passes = 1
-feedback = off
-```
-
-A repeated-but-no-feedback run means:
-
-```text
-harness_passes > 1
-feedback = off
-```
-
-A true closed loop means:
-
-```text
-harness_passes > 1
-feedback = on
-```
-
-## Fourth implementation target
-
-Fix observability before running the science.
-
-Current full state artifacts overwrite earlier calls.
-
-Persist:
-
-```text
-run
-→ cycle/pass
-→ component index
-→ stage step
-→ full state artifact
-```
-
-Also persist every provider-facing readout/context and bind:
-
-```text
-provider call
-→ context hash/artifact
-→ provider output
-→ feedback application
-```
-
-## Fifth implementation target
-
-Strengthen readiness.
-
-Current stage-level receipts can satisfy Cook and MaleCNS readiness independently.
-
-Primary readiness must prove one canonical run executed:
-
-```text
-full Cook
-→ declared bridge
-→ full MaleCNS
-```
-
-with exact dataset hashes and resolved architecture/config.
-
-## Required control set before interpreting results
-
-Do not claim architecture benefit until these are executable:
+Use the same task set to compare:
 
 ```text
 ordinary LLM baseline
@@ -199,73 +103,51 @@ LLM only
 Cook only
 MaleCNS only
 Cook → MaleCNS
-synthetic reservoir
-shuffled topology
-zero feedback
-shuffled feedback
-feed-forward full composition
+full feed-forward composition
 repeated no-feedback composition
 closed-loop composition
+zero/random bridge controls
+zero input
+synthetic reservoir
+shuffled MaleCNS topology
 ```
 
-## The first questions the harness must answer
+The questions are:
 
-Keep the explanation simple:
+1. Does architecture change the internal trajectory?
+2. Does it change task performance?
+3. Does the combination add something beyond its parts?
+4. Does any improvement survive compute matching and null controls?
 
-1. Does changing the architecture actually change what the system does internally?
-2. Does that make the task result better, worse, or the same?
-3. Does the combination contribute something beyond the individual parts?
+## Known research dimensions for later
 
-Everything else is supporting measurement.
+Only after the first experiment produces interpretable evidence:
 
-## Important known gaps not to lose
+- structured or population-targeted feedback;
+- alternative input encoders;
+- alternative whole-state readouts;
+- embeddings;
+- rerankers;
+- additional model providers;
+- generic component registry;
+- minimal agent/tool loop.
 
-Critical:
+## Do not reopen as bugs
 
-- eval is only a JEV/LLM 2x2;
-- no canonical task answer/scorer;
-- Cook→MaleCNS bridge truncates to first 32 values by default;
-- eval cases inherit state within each condition;
-- primary readiness accepts disjoint stage executions;
-- provider request context is hashed but not fully persisted;
-- full stage recordings overwrite earlier cycles;
-- eval runs lack a durable experiment-group manifest.
+These are already implemented and tested:
 
-High:
+- common `TaskResult`;
+- architecture variants;
+- harness-pass separation;
+- reset/repetition/order manifests;
+- whole-state bridge;
+- bridge/input/stage/topology null controls;
+- per-pass state/context persistence;
+- strict JEV validation;
+- invalid LLM-result handling;
+- end-to-end readiness receipt;
+- source/compiled hash binding;
+- compute signatures;
+- feedback source/context provenance.
 
-- harness repetition vs neural recurrence vs feedback are conflated;
-- generic input encoding is hash-based;
-- feedback is scalar/global;
-- JEV→feedback formula is hand-written;
-- malformed LLM output silently becomes zero feedback;
-- strict JEV output validation is absent;
-- several documented controls are not implemented;
-- comparisons are not compute-matched;
-- task sets/condition order/repetitions are not frozen;
-- mutable model aliases reduce reproducibility;
-- readout fidelity is not experimentally validated;
-- readiness does not bind dataset/compiled hashes strongly enough;
-- feedback trace lacks source context/call provenance.
-
-## Scope guard
-
-Do not spend the next session implementing:
-
-- general terminal autonomy;
-- dozens of tools;
-- browser-agent loops;
-- general subagent orchestration;
-- embeddings/rerankers as production features;
-- plugin ecosystems.
-
-Those come after the experiment harness can distinguish a real composition effect from extra compute, state contamination, arbitrary encoders, or evaluation artifacts.
-
-## Completion target for next session
-
-A good next-session endpoint is not “more features.”
-
-It is:
-
-> HIVE can run a small fixed task set through at least two genuinely different architecture variants, start each case from identical state, emit a common TaskResult, preserve every intermediate state/context, and score the variants with one common evaluator.
-
-Once that works on fixtures/control substrates, move it to the full Cook + full MaleCNS primary run.
+If a future change regresses any of those, treat it as semantic drift.
