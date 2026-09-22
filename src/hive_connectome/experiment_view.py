@@ -86,32 +86,90 @@ def build_experiment_plan(
     llm_configured = venice_ready if llm_provider == "venice" else bool(provider_config.get("lmstudio_base_url"))
 
     active_stage_ids = {item["id"] for item in stages if item["enabled"]}
+    stage_by_id = {item["id"]: item for item in stages}
+    bridge_by_id = {item["id"]: item for item in bridges}
+    architecture = list(worker.architecture)
+
     sequence: list[dict[str, Any]] = [{"type": "input", "label": "Input"}]
-    for stage in stages:
-        if stage["enabled"]:
-            sequence.append({"type": "neural", "id": stage["id"], "label": stage["name"], "engine": stage["engine_label"]})
-    if worker.jev.enabled:
-        sequence.append({"type": "jev", "label": "JEV", "provider": "Venice", "model": worker.jev.model})
-    if worker.llm.enabled:
-        sequence.append({"type": "llm", "label": "LLM", "provider": worker.llm.provider, "model": worker.llm.model})
+    for tag in architecture:
+        if tag in stage_by_id:
+            stage = stage_by_id[tag]
+            sequence.append({
+                "type": "neural",
+                "tag": tag,
+                "id": stage["id"],
+                "label": stage["name"],
+                "engine": stage["engine_label"],
+                "enabled": stage["enabled"],
+            })
+        elif tag in bridge_by_id:
+            bridge = bridge_by_id[tag]
+            sequence.append({
+                "type": "bridge",
+                "tag": tag,
+                "label": bridge["label"],
+                "source": bridge["source"],
+                "target": bridge["target"],
+                "enabled": bridge["enabled"],
+            })
+        elif tag == "readout":
+            sequence.append({"type": "readout", "tag": tag, "label": "Whole-state readout"})
+        elif tag == "jev":
+            sequence.append({
+                "type": "jev",
+                "tag": tag,
+                "label": "JEV",
+                "provider": "Venice",
+                "model": worker.jev.model,
+                "enabled": worker.jev.enabled,
+            })
+        elif tag == "llm":
+            sequence.append({
+                "type": "llm",
+                "tag": tag,
+                "label": "LLM",
+                "provider": worker.llm.provider,
+                "model": worker.llm.model,
+                "enabled": worker.llm.enabled,
+            })
+        elif tag == "jev_verify":
+            sequence.append({
+                "type": "jev_verify",
+                "tag": tag,
+                "label": "JEV verification",
+                "enabled": worker.jev.enabled and worker.llm.enabled and worker.llm.verify_with_jev,
+            })
+        elif tag == "feedback":
+            sequence.append({"type": "feedback", "tag": tag, "label": "Bounded neural feedback"})
     sequence.append({"type": "output", "label": "Recorded result"})
 
     warnings: list[str] = []
+    tagged = set(architecture)
     for stage in stages:
-        if stage["enabled"] and stage["pack_id"] and not stage["dataset_installed"]:
-            warnings.append(f"{stage['name']} is enabled but its dataset is not installed.")
+        if stage["enabled"] and stage["id"] in tagged and stage["pack_id"] and not stage["dataset_installed"]:
+            warnings.append(f"{stage['name']} is tagged and enabled but its dataset is not installed.")
+        if stage["enabled"] and stage["id"] not in tagged:
+            warnings.append(f"{stage['name']} is enabled but omitted from the architecture tags.")
     for bridge in bridges:
-        if bridge["enabled"] and (bridge["source"] not in active_stage_ids or bridge["target"] not in active_stage_ids):
-            warnings.append(f"Bridge {bridge['source']} → {bridge['target']} is configured but one endpoint is disabled.")
-    if worker.jev.enabled and not venice_ready:
-        warnings.append("JEV is enabled but the Venice API key is not configured.")
-    if worker.llm.enabled and not worker.llm.model and not provider_config.get("default_llm_model"):
-        warnings.append("LLM is enabled but no model is selected.")
-    if worker.llm.enabled and not llm_configured:
-        warnings.append(f"LLM provider {worker.llm.provider} is enabled but not configured.")
+        if bridge["id"] in tagged and bridge["enabled"] and (
+            bridge["source"] not in active_stage_ids or bridge["target"] not in active_stage_ids
+        ):
+            warnings.append(
+                f"Tagged bridge {bridge['source']} → {bridge['target']} has a disabled endpoint and will be skipped."
+            )
+    if worker.jev.enabled and "jev" in tagged and not venice_ready:
+        warnings.append("JEV is tagged and enabled but the Venice API key is not configured.")
+    if worker.llm.enabled and "llm" in tagged and not worker.llm.model and not provider_config.get("default_llm_model"):
+        warnings.append("LLM is tagged and enabled but no model is selected.")
+    if worker.llm.enabled and "llm" in tagged and not llm_configured:
+        warnings.append(f"LLM provider {worker.llm.provider} is tagged and enabled but not configured.")
 
-    is_primary = any(s["enabled"] and s["engine"] == "cook2019_connectome" for s in stages) and any(
-        s["enabled"] and s["engine"] == "malecns_full_v1" for s in stages
+    is_primary = any(
+        s["enabled"] and s["id"] in tagged and s["engine"] == "cook2019_connectome"
+        for s in stages
+    ) and any(
+        s["enabled"] and s["id"] in tagged and s["engine"] == "malecns_full_v1"
+        for s in stages
     )
     primary_ready = bool(runtime_status.get("primary_experiment_ready"))
 
@@ -123,6 +181,8 @@ def build_experiment_plan(
         "task_prompt": worker.experiment.task_prompt,
         "stages": stages,
         "bridges": bridges,
+        "architecture": architecture,
+        "integration_cycles": worker.runtime.integration_cycles,
         "jev": {
             "enabled": worker.jev.enabled,
             "provider": worker.jev.provider,
