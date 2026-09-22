@@ -68,7 +68,7 @@ def test_unknown_architecture_tag_is_rejected(tmp_path: Path):
 async def test_architecture_order_is_execution_order(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.llm.enabled = False
     scout.jev.enabled = True
     scout.architecture = [
@@ -108,7 +108,7 @@ async def test_architecture_order_is_execution_order(tmp_path: Path):
 async def test_bridge_tag_must_precede_its_target_stage(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.architecture = ["worm", "fly", "worm-to-fly"]
     workers.save(scout)
 
@@ -146,7 +146,7 @@ class CaptureLLM:
 async def test_llm_without_jev_does_not_receive_fake_jev_decision(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.jev.enabled = False
     scout.llm.enabled = True
     scout.llm.model = "test-model"
@@ -180,7 +180,7 @@ async def test_llm_without_jev_does_not_receive_fake_jev_decision(tmp_path: Path
 async def test_jev_and_llm_feedback_have_independent_targets(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 2
+    scout.runtime.harness_passes = 2
     scout.jev.enabled = True
     scout.jev.feedback_to_brain = True
     scout.jev.feedback_targets = ["worm"]
@@ -233,7 +233,7 @@ async def test_jev_and_llm_feedback_have_independent_targets(tmp_path: Path):
 async def test_jev_verifier_does_not_require_regular_jev_tag(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.jev.enabled = True
     scout.llm.enabled = True
     scout.llm.model = "test-model"
@@ -279,7 +279,7 @@ def test_feedback_targets_must_reference_real_neural_stages(tmp_path: Path):
 async def test_llm_does_not_receive_stale_jev_decision_after_neural_change(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.jev.enabled = True
     scout.llm.enabled = True
     scout.llm.model = "test-model"
@@ -319,7 +319,7 @@ async def test_llm_does_not_receive_stale_jev_decision_after_neural_change(tmp_p
 async def test_verifier_rejects_llm_output_from_stale_readout(tmp_path: Path):
     workers = _store(tmp_path)
     scout = workers.get("scout")
-    scout.runtime.integration_cycles = 1
+    scout.runtime.harness_passes = 1
     scout.jev.enabled = True
     scout.llm.enabled = True
     scout.llm.model = "test-model"
