@@ -928,6 +928,7 @@ class HivePipeline:
                         "model": decisions.model,
                         "call_id": decisions.transport.get("call_id"),
                         "context_hash": latest_jev_context_hash,
+                        "context_artifact": latest_jev_context_artifact,
                     })
                     continue
 
@@ -950,6 +951,14 @@ class HivePipeline:
                         and latest_jev_context_hash == decision_state_hash
                     ):
                         llm_context["jev_decision"] = latest_jev_decision.model_dump(mode="json")
+                    latest_llm_readout_hash = decision_state_hash
+                    latest_llm_context_hash, latest_llm_context_artifact = self._record_context(
+                        run_id,
+                        cycle_index=cycle_index,
+                        component_index=component_index,
+                        tag="llm-context",
+                        payload=llm_context,
+                    )
                     if worker.llm.provider == "lmstudio":
                         model = worker.llm.model or self.default_llm_model
                         if self.lmstudio is None or not model:
@@ -997,11 +1006,11 @@ class HivePipeline:
                         llm.transport,
                     )
                     call_id = llm.transport.get("call_id")
+                    latest_llm_call_id = call_id
                     if call_id:
                         provider_call_ids.append(call_id)
                         cycle_provider_ids.append(call_id)
                     latest_llm_feedback = self._llm_feedback_signal(llm)
-                    latest_llm_context_hash = decision_state_hash
                     components.append({
                         "tag": tag,
                         "type": "llm",
@@ -1010,6 +1019,9 @@ class HivePipeline:
                         "model": llm.model,
                         "call_id": llm.transport.get("call_id"),
                         "context_hash": latest_llm_context_hash,
+                        "context_artifact": latest_llm_context_artifact,
+                        "readout_hash": latest_llm_readout_hash,
+                        "structured_output_valid": self._parse_llm_payload(llm)[1] is None,
                         "jev_context_included": bool(
                             latest_jev_decision is not None
                             and latest_jev_context_hash == decision_state_hash
@@ -1035,7 +1047,7 @@ class HivePipeline:
                         raise RuntimeError(
                             "JEV verification requires an LLM tag to execute earlier in the architecture"
                         )
-                    if latest_llm_context_hash != decision_state_hash:
+                    if latest_llm_readout_hash != decision_state_hash:
                         raise RuntimeError(
                             "JEV verification requires the latest LLM output to have been generated from the current readout"
                         )
@@ -1053,6 +1065,13 @@ class HivePipeline:
                             and latest_jev_context_hash == decision_state_hash
                         ):
                             verification_state["jev_decision"] = latest_jev_decision.model_dump(mode="json")
+                        verification_context_hash, verification_context_artifact = self._record_context(
+                            run_id,
+                            cycle_index=cycle_index,
+                            component_index=component_index,
+                            tag="jev-verify-context",
+                            payload=verification_state,
+                        )
                         verification = await self.venice.decide(
                             verification_state,
                             {
@@ -1089,20 +1108,38 @@ class HivePipeline:
                         "provider": verification.provider,
                         "model": verification.model,
                         "call_id": verification.transport.get("call_id"),
+                        "context_hash": verification_context_hash,
+                        "context_artifact": verification_context_artifact,
                     })
                     continue
 
                 if tag == "feedback":
+                    if not feedback_enabled:
+                        components.append({
+                            "tag": tag,
+                            "type": "feedback",
+                            "called": False,
+                            "applied": False,
+                            "reason": "experiment_feedback_disabled",
+                        })
+                        continue
                     feedback_sources: dict[str, dict[str, Any]] = {}
                     if latest_jev_feedback is not None and worker.jev.feedback_to_brain:
                         feedback_sources["jev"] = {
                             "value": latest_jev_feedback,
                             "targets": list(worker.jev.feedback_targets),
+                            "call_id": latest_jev_call_id,
+                            "context_hash": latest_jev_context_hash,
+                            "context_artifact": latest_jev_context_artifact,
                         }
                     if latest_llm_feedback is not None and worker.llm.feedback_to_brain:
                         feedback_sources["llm"] = {
                             "value": latest_llm_feedback,
                             "targets": list(worker.llm.feedback_targets),
+                            "call_id": latest_llm_call_id,
+                            "context_hash": latest_llm_context_hash,
+                            "context_artifact": latest_llm_context_artifact,
+                            "readout_hash": latest_llm_readout_hash,
                         }
 
                     source_values = [
