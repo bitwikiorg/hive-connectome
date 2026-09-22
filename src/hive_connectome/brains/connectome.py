@@ -28,6 +28,14 @@ def _canonical_bytes(payload: Any) -> bytes:
     return json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str, separators=(",", ":")).encode("utf-8")
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _encoded_targets(payload: Any, candidates: list[int], count: int) -> list[tuple[int, float]]:
     if isinstance(payload, dict) and "__hive_stimulus__" in payload:
         explicit = []
@@ -84,6 +92,7 @@ class CookConnectomeBrain(MiniBrain):
             raise FileNotFoundError(f"Cook connectome is not installed: {workbook}")
         self.brain_id = brain_id
         self.workbook = workbook
+        self.source_sha256 = _sha256_file(workbook)
         self.substeps = max(1, int(substeps))
         self.names, self.edges, self.chemical_edges, self.gap_edges = self._load_graph(workbook)
         if not self.names or not self.edges:
@@ -184,6 +193,7 @@ class CookConnectomeBrain(MiniBrain):
                 "real_connectome_topology": True,
                 "source": "Cook et al. 2019; corrected July 2020 adjacency workbook",
                 "data_file": str(self.workbook),
+                "source_sha256": self.source_sha256,
                 "node_count": len(self.names),
                 "edge_count": len(self.edges),
                 "dynamics": "engineered graded recurrent dynamics over measured wiring",
