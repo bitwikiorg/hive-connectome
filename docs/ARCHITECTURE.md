@@ -16,12 +16,12 @@ JEV                         independently ablatable
 LLM                         independently ablatable
     ↓
 bounded recurrent feedback
-    ↺ same input / next integration cycle
+    ↺ same input / next harness pass
     ↓
 recorded result + trace
 ```
 
-A Core owns its experiment objective, data environment, neural configuration, explicit bridges, JEV questions, LLM configuration, recurrent integration-cycle count, recording policy, and outputs. A Hive chains multiple Cores only when the experiment explicitly requires a multi-Core topology.
+A Core owns its experiment objective, data environment, neural configuration, explicit bridges, JEV questions, LLM configuration, harness-pass count, feedback policy, recording policy, and outputs. Neural internal substeps, whole-harness repetition, and cross-component feedback are independent variables. A Hive chains multiple Cores only when the experiment explicitly requires a multi-Core topology.
 
 ## Comma-tagged executable architecture
 
@@ -66,7 +66,7 @@ The representation is intentionally bounded for provider context limits, but it 
 
 ## Recurrent integration
 
-When JEV and/or an LLM are enabled, the default Core runs multiple integration cycles over the same input:
+When JEV and/or an LLM are enabled, the default Core runs multiple harness passes over the same input:
 
 ```text
 neural pass
@@ -77,7 +77,7 @@ neural pass
 → neural refinement on the same input
 ```
 
-Every enabled member executes where its tag occurs on every integration cycle. JEV is not an LLM gate. An LLM receives a JEV decision only when a real JEV call actually executed earlier in that cycle; otherwise no `jev_decision` field is fabricated. `jev_verify` can verify a prior LLM call without requiring a regular `jev` tag.
+Every enabled member executes where its tag occurs on every harness pass. JEV is not an LLM gate. An LLM receives a JEV decision only when a real JEV call actually executed earlier in that cycle; otherwise no `jev_decision` field is fabricated. `jev_verify` can verify a prior LLM call without requiring a regular `jev` tag.
 
 The ablation switches remain independent:
 
@@ -130,6 +130,10 @@ The experimental controls are intentionally orthogonal:
 - recurrent feedback: presence of the `feedback` tag;
 - JEV feedback contribution: `jev.feedback_to_brain` with `jev.feedback_targets`;
 - LLM feedback contribution: `llm.feedback_to_brain` with `llm.feedback_targets`;
-- recurrent depth: `runtime.integration_cycles`.
+- harness repetition: `runtime.harness_passes`;
+- root input encoder: per-stage `engine_default` or explicit zero control;
+- neural stage engine/config: transient per-variant overrides;
+- topology null: deterministic `shuffle_presynaptic_v1` for full MaleCNS;
+- bridge strategy: canonical whole-state projection plus explicit legacy/random/zero controls.
 
 No one toggle is allowed to silently enable, disable, target, or rename another component.
