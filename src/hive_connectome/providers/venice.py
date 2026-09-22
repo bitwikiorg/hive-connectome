@@ -126,7 +126,7 @@ class VeniceChat:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are an experimental reasoning layer inside HIVE. Use supplied evidence only and state unresolved uncertainty explicitly.",
+                    "content": "You are an integrated reasoning member of HIVE. Process every supplied input with the neural and JEV state. Use supplied evidence only. Return ONLY JSON with keys analysis (string), unresolved (array of strings), and neural_feedback (number from -1.0 to 1.0; 0.0 means no recurrent modulation).",
                 },
                 {"role": "user", "content": f"Task:\n{prompt}\n\nState:\n{context}"},
             ],
