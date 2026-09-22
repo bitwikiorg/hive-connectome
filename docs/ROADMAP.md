@@ -1,128 +1,126 @@
 # Roadmap
 
-Current focus: **composition experiment integrity**.
+Current focus: **run the composition experiments**.
 
-HIVE is not being expanded into a full agent harness at this stage. The immediate objective is to make staged and recurrent architecture comparisons causally interpretable.
+HIVE is not being expanded into a full agent harness until the composition hypothesis is tested.
 
-## Implemented foundation
+## Foundation — complete
 
 - [x] event and neural-observation schemas
-- [x] persistent run/event/provider store
+- [x] persistent run/event/provider/experiment store
 - [x] GUI/API
 - [x] ordered executable architecture tags
-- [x] independently toggleable JEV and LLM calls
-- [x] independently configurable JEV/LLM feedback targets
-- [x] context-freshness protections for provider calls
-- [x] Cook corrected full-connectome engine
-- [x] MaleCNS 1,045-neuron locomotor control engine
+- [x] independent JEV / LLM toggles
+- [x] independent feedback settings and targets
+- [x] Cook full-connectome engine
+- [x] MaleCNS locomotor control
 - [x] full MaleCNS v1.0 sparse engine
+- [x] deterministic synthetic reservoir
 - [x] whole-state provider readout
-- [x] explicit Cook→MaleCNS bridge machinery
+- [x] explicit bridge machinery
 - [x] real provider receipts
-- [x] full-state export capability
-- [x] experiment export bundle
+- [x] full-state + context export
 - [x] Docker / Windows deployment path
 
-## Phase A — experiment truth
+## Experiment integrity — complete
 
-- [ ] define canonical `TaskResult`
-- [ ] define executable task scorers
-- [ ] define `ArchitectureVariant` + deterministic config hash
-- [ ] define durable `ExperimentRun` manifest/grouping
-- [ ] freeze/hash task sets
-- [ ] add explicit reset/checkpoint policy per case
-- [ ] support repeated trials and condition ordering
-- [ ] collect uncertainty, not only point estimates
-- [ ] add compute/call-budget reporting
+- [x] canonical architecture-independent `TaskResult`
+- [x] common exact/route scorers
+- [x] `ArchitectureVariant` + deterministic variant hash
+- [x] durable `ExperimentRun` manifest
+- [x] task-set hash
+- [x] explicit reset policy
+- [x] repetitions and deterministic condition ordering
+- [x] uncertainty summary
+- [x] compute signatures and `compute_matched`
+- [x] neural substeps separated from harness passes
+- [x] harness passes separated from feedback
+- [x] one-pass feed-forward mode
+- [x] repeated-no-feedback mode
+- [x] closed-loop feedback mode
+- [x] canonical whole-state Cook → MaleCNS bridge
+- [x] legacy excerpt bridge control
+- [x] random bridge control
+- [x] zero bridge control
+- [x] explicit zero root-input control
+- [x] transient neural-engine/config variants
+- [x] deterministic shuffled-MaleCNS topology control
+- [x] per-pass/component full-state artifacts
+- [x] persisted provider-facing contexts
+- [x] provider output ↔ context provenance
+- [x] feedback ↔ source call/context provenance
+- [x] strict typed JEV validation
+- [x] malformed LLM task-result failure handling
+- [x] versioned feedback adapters
+- [x] end-to-end primary execution receipt
+- [x] canonical control variants barred from readiness
+- [x] Cook source hash binding
+- [x] MaleCNS source + compiled-array hash binding
+- [x] resolved primary config hash
 
-## Phase B — separate architecture variables
+## Primary target-machine proof — next
 
-- [ ] separate neural substeps from harness passes
-- [ ] separate harness passes from cross-component feedback
-- [ ] make clean one-pass feed-forward mode first-class
-- [ ] make repeated-no-feedback mode first-class
-- [ ] make closed-loop feedback mode first-class
+- [ ] install/verify pinned full Cook + MaleCNS data on target machine
+- [ ] execute exact full MaleCNS graph
+- [ ] verify 166,700 / 25,582,938 / 124,177,617
+- [ ] produce canonical Cook → whole-state bridge → full MaleCNS end-to-end receipt
+- [ ] verify full per-pass state/context artifacts
+- [ ] confirm `primary_experiment_ready = true`
+- [ ] exercise real authenticated JEV/LLM calls for enabled variants
 
-## Phase C — repair and generalize neural handoffs
+## First causal pilot
 
-- [ ] replace first-32 Cook excerpt as canonical primary bridge
-- [ ] preserve legacy excerpt bridge as a control
-- [ ] implement whole-state deterministic bridge strategy
-- [ ] implement random-projection bridge control
-- [ ] implement zero/null bridge control
-- [ ] version/hash bridge encoders
-- [ ] make neural input encoder an explicit experimental component
-
-## Phase D — complete observability
-
-- [ ] preserve every stage state per pass/component/step
-- [ ] persist every provider-facing readout/context artifact
-- [ ] bind provider outputs to stored context artifacts
-- [ ] bind feedback application to source call/context
-- [ ] record complete trajectory manifests
-- [ ] prevent intermediate artifacts from being overwritten
-
-## Phase E — strengthen primary readiness
-
-- [ ] require one end-to-end primary execution receipt
-- [ ] bind full Cook + bridge + full MaleCNS to one run
-- [ ] bind exact dataset hashes
-- [ ] bind compiled graph hashes
-- [ ] bind resolved architecture/config hash
-- [ ] target-machine execute 166,700 / 25,582,938 / 124,177,617 primary graph
-- [ ] verify real JEV/LLM calls where enabled
-
-## Phase F — causal controls
-
+- [ ] freeze first benchmark task set
 - [ ] ordinary LLM baseline
 - [ ] JEV-only
 - [ ] LLM-only
 - [ ] Cook-only
 - [ ] MaleCNS-only
-- [ ] Cook→MaleCNS
-- [ ] deterministic synthetic reservoir
-- [ ] matched random reservoir
-- [ ] shuffled connectome topology
-- [ ] zero feedback
-- [ ] shuffled feedback
-- [ ] feed-forward full composition
-- [ ] repeated no-feedback composition
-- [ ] closed-loop composition
-- [ ] compute-matched simpler baselines
+- [ ] Cook → MaleCNS
+- [ ] full one-pass feed-forward
+- [ ] repeated no-feedback
+- [ ] closed-loop feedback
+- [ ] zero bridge
+- [ ] random bridge
+- [ ] zero input
+- [ ] synthetic reservoir
+- [ ] shuffled MaleCNS topology
+- [ ] repeat stochastic variants
+- [ ] report uncertainty
+- [ ] compare compute signatures / compute-matched baselines
 
-## Phase G — evaluate the first real composition hypothesis
+## First scientific decision point
 
-For a frozen task set, answer:
+For one frozen task family, answer:
 
-1. Does architecture change the internal trajectory?
-2. Does it improve task outcome?
-3. Does the combination add something beyond its parts?
+1. Does composition topology change internal trajectories?
+2. Does it change task outcomes?
+3. Does the combination add something beyond the parts?
+4. Does any benefit survive null controls and compute matching?
 
-Only after these comparisons survive null controls and replication should HIVE make claims about useful composition effects.
+Do not make claims about biological-connectome advantage until those comparisons are run.
 
-## Phase H — extensible processors
+## Later processor experiments
 
-After the experiment harness is trustworthy:
+Only after the first causal pilot:
 
-- [ ] small generic processor/component interface
+- [ ] alternate input encoders
+- [ ] alternate readout encoders
+- [ ] structured/population-targeted feedback
 - [ ] embeddings
 - [ ] rerankers
 - [ ] classifiers
-- [ ] alternate readouts
 - [ ] alternate model providers
-- [ ] task-specific encoders
+- [ ] small generic component interface
 
-Do not turn this phase into a large agent framework unless experimental results justify it.
+## Possible future harness work
 
-## Later / non-core surfaces
+Only if experiment results justify it:
 
-These may remain available but are not the current research priority:
+- terminal/tool loop;
+- agent memory;
+- subagents;
+- browser autonomy;
+- generic plugin ecosystem.
 
-- worker/Core chaining
-- browser environments
-- schedulers/daemons
-- MCP
-- domain deployment profiles
-- external action/tool execution
-
-See `docs/AUDIT.md` and `docs/NEXT_SESSION.md`.
+The next milestone is evidence, not more orchestration.
