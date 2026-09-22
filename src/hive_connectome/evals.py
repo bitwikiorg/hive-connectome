@@ -44,6 +44,9 @@ class ArchitectureVariant(BaseModel):
     harness_passes: int | None = Field(default=None, ge=1, le=8)
     feedback_enabled: bool | None = None
     bridge_engines: dict[str, str] = Field(default_factory=dict)
+    input_encoders: dict[
+        str, Literal["engine_default", "zero_v1"]
+    ] = Field(default_factory=dict)
 
 
 DEFAULT_VARIANTS = [
