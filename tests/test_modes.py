@@ -60,7 +60,7 @@ async def test_brain_llm_calls_llm_without_jev(tmp_path):
     assert out.decisions.provider=="brain-readout"
     assert out.llm is not None
     assert lm.calls==2
-    assert out.execution["integration"]["cycles"]==2
+    assert out.execution["integration"]["harness_passes"]==2
     p.db.close()
 
 
@@ -87,7 +87,7 @@ async def test_jev_and_llm_execute_together(tmp_path):
     assert out.decisions.provider=="venice"
     assert out.llm is not None
     assert lm.calls==2
-    assert out.execution["integration"]["cycles"]==2
+    assert out.execution["integration"]["harness_passes"]==2
     assert all(item["jev_called"] and item["llm_called"] for item in out.execution["integration"]["trace"])
     p.db.close()
 
