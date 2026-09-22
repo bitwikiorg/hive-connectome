@@ -76,6 +76,7 @@ class LMStudio:
             "latency_ms": (time.perf_counter() - started) * 1000, "http_status": response.status_code,
             "request_hash": _digest(payload), "response_hash": _digest(raw),
             "response_headers": {k: response.headers.get(k) for k in ("x-request-id", "request-id") if response.headers.get(k)},
+            "usage": raw.get("usage") if isinstance(raw, dict) else None,
             "error": None,
         }
         return LLMResult(provider="lmstudio", model=returned_model, text=text, raw=raw, transport=transport)
