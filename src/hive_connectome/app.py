@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import random
 import time
+from uuid import uuid4
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from hive_connectome.connectomes.installer import ConnectomeInstaller
 from hive_connectome.db import HiveDB
-from hive_connectome.evals import EvalRequest, summarize_eval
+from hive_connectome.evals import EvalRequest, canonical_task_set_hash, score_task_result, summarize_eval
 from hive_connectome.exports import build_experiment_export
 from hive_connectome.experiment_view import build_experiment_plan
 from hive_connectome.environment import EnvironmentModeError, EnvironmentNotImplemented, WorkerEnvironmentRunner
@@ -420,51 +423,159 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
 
     @app.post("/api/evals/run")
     async def run_eval(req: EvalRequest):
+        experiment_run_id = str(uuid4())
+        task_set_hash = canonical_task_set_hash(req.cases)
+        variants = req.resolved_variants()
         rows = []
-        for toggles in req.toggles:
+        manifest_variants = []
+
+        # Deterministic condition ordering avoids accidental dependence on API
+        # list order while remaining replayable.
+        ordered_variants = list(variants)
+        if req.condition_order_seed is not None:
+            random.Random(req.condition_order_seed).shuffle(ordered_variants)
+
+        if req.reset_policy == "persistent_sequence":
             try:
                 pipeline.reset(req.worker_id)
             except KeyError:
                 raise HTTPException(404, "worker not found")
-            for case in req.cases:
-                started = time.perf_counter()
-                try:
-                    result = await pipeline.run(PipelineRequest(
-                        worker_id=req.worker_id,
-                        event=case.event,
-                        mode="auto",
-                        jev_enabled=toggles.jev,
-                        llm_enabled=toggles.llm,
-                    ))
-                    route = result.decisions.answers.get("route", {}).get("choice")
-                    rows.append({
-                        "case_id": case.id,
-                        "toggle_case": toggles.id,
-                        "jev": toggles.jev,
-                        "llm": toggles.llm,
-                        "route": route,
-                        "route_correct": None if case.expected_route is None else route == case.expected_route,
-                        "latency_ms": (time.perf_counter() - started) * 1000,
-                        "jev_called": result.decisions.provider == "venice",
-                        "llm_called": result.llm is not None,
-                        "unresolved": result.unresolved,
-                        "error": None,
-                    })
-                except Exception as exc:
-                    rows.append({
-                        "case_id": case.id,
-                        "toggle_case": toggles.id,
-                        "jev": toggles.jev,
-                        "llm": toggles.llm,
-                        "route": None,
-                        "route_correct": False if case.expected_route is not None else None,
-                        "latency_ms": (time.perf_counter() - started) * 1000,
-                        "jev_called": toggles.jev,
-                        "llm_called": False,
-                        "unresolved": [],
-                        "error": str(exc),
-                    })
-        return {"worker_id": req.worker_id, "summary": summarize_eval(rows), "rows": rows}
+
+        for variant in ordered_variants:
+            variant_payload = variant.model_dump(mode="json")
+            variant_hash = hashlib.sha256(
+                json.dumps(
+                    variant_payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
+            ).hexdigest()
+            manifest_variants.append({
+                **variant_payload,
+                "variant_hash": variant_hash,
+            })
+
+            for repetition in range(req.repetitions):
+                if req.reset_policy == "reset_per_variant":
+                    try:
+                        pipeline.reset(req.worker_id)
+                    except KeyError:
+                        raise HTTPException(404, "worker not found")
+
+                for case in req.cases:
+                    if req.reset_policy == "reset_per_case":
+                        try:
+                            pipeline.reset(req.worker_id)
+                        except KeyError:
+                            raise HTTPException(404, "worker not found")
+
+                    started = time.perf_counter()
+                    try:
+                        result = await pipeline.run(PipelineRequest(
+                            worker_id=req.worker_id,
+                            event=case.event,
+                            mode="auto",
+                            jev_enabled=variant.jev,
+                            llm_enabled=variant.llm,
+                            architecture=variant.architecture,
+                            harness_passes=variant.harness_passes,
+                            feedback_enabled=variant.feedback_enabled,
+                        ))
+                        route = result.decisions.answers.get("route", {}).get("choice")
+                        task_score = score_task_result(case, result.task_result, route)
+                        rows.append({
+                            "experiment_run_id": experiment_run_id,
+                            "run_id": result.run_id,
+                            "case_id": case.id,
+                            "repetition": repetition,
+                            "variant_id": variant.id,
+                            "variant_hash": variant_hash,
+                            # legacy key retained for old clients
+                            "toggle_case": variant.id,
+                            "jev": variant.jev,
+                            "llm": variant.llm,
+                            "architecture": result.execution.get("architecture"),
+                            "harness_passes": result.execution.get("integration", {}).get("cycles", 1),
+                            "feedback_enabled": variant.feedback_enabled,
+                            "route": route,
+                            "route_correct": (
+                                None
+                                if case.expected_route is None
+                                else route == case.expected_route
+                            ),
+                            "task_result": result.task_result.model_dump(mode="json"),
+                            "task_score": task_score,
+                            "latency_ms": (time.perf_counter() - started) * 1000,
+                            "jev_called": result.execution.get("jev", {}).get("called", False),
+                            "jev_calls": result.execution.get("jev", {}).get("calls", 0),
+                            "llm_called": result.execution.get("llm", {}).get("called", False),
+                            "llm_calls": result.execution.get("llm", {}).get("calls", 0),
+                            "unresolved": result.task_result.unresolved,
+                            "error": None,
+                        })
+                    except Exception as exc:
+                        rows.append({
+                            "experiment_run_id": experiment_run_id,
+                            "run_id": None,
+                            "case_id": case.id,
+                            "repetition": repetition,
+                            "variant_id": variant.id,
+                            "variant_hash": variant_hash,
+                            "toggle_case": variant.id,
+                            "jev": variant.jev,
+                            "llm": variant.llm,
+                            "architecture": variant.architecture,
+                            "harness_passes": variant.harness_passes or 1,
+                            "feedback_enabled": variant.feedback_enabled,
+                            "route": None,
+                            "route_correct": (
+                                False if case.expected_route is not None else None
+                            ),
+                            "task_result": None,
+                            "task_score": (
+                                0.0
+                                if case.expected_answer is not None
+                                or case.expected_route is not None
+                                else None
+                            ),
+                            "latency_ms": (time.perf_counter() - started) * 1000,
+                            "jev_called": False,
+                            "jev_calls": 0,
+                            "llm_called": False,
+                            "llm_calls": 0,
+                            "unresolved": [],
+                            "error": str(exc),
+                        })
+
+        summary = summarize_eval(rows)
+        experiment_record = {
+            "experiment_run_id": experiment_run_id,
+            "worker_id": req.worker_id,
+            "task_set_hash": task_set_hash,
+            "scorer_version": req.scorer_version,
+            "reset_policy": req.reset_policy,
+            "repetitions": req.repetitions,
+            "condition_order_seed": req.condition_order_seed,
+            "variants": manifest_variants,
+            "case_ids": [case.id for case in req.cases],
+            "run_ids": [row["run_id"] for row in rows if row.get("run_id")],
+            "summary": summary,
+            "rows": rows,
+        }
+        db.insert_experiment_run(experiment_record)
+        return experiment_record
+
+    @app.get("/api/evals/runs")
+    async def eval_runs(limit: int = Query(100, ge=1, le=5000), worker_id: str | None = None):
+        return db.list_experiment_runs(limit=limit, worker_id=worker_id)
+
+    @app.get("/api/evals/runs/{experiment_run_id}")
+    async def eval_run_detail(experiment_run_id: str):
+        record = db.get_experiment_run(experiment_run_id)
+        if record is None:
+            raise HTTPException(404, "experiment run not found")
+        return record
 
     @app.get("/api/events")
     async def events(limit: int = Query(50, ge=1, le=500)):
