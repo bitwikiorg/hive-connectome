@@ -90,6 +90,13 @@ class LLMConfig(BaseModel):
     feedback_to_brain: bool = True
     feedback_targets: list[str] = Field(default_factory=list)
 
+    @field_validator("activation", mode="before")
+    @classmethod
+    def migrate_legacy_activation(cls, value):
+        # v0.6/v0.7 briefly exposed hidden LLM gating modes. Architecture tags
+        # are now the sole execution-order/gating mechanism.
+        return "always"
+
 
 class RuntimeSpec(BaseModel):
     enabled: bool = False
