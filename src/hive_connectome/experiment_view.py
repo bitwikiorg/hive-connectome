@@ -159,6 +159,14 @@ def build_experiment_plan(
             )
     if worker.jev.enabled and "jev" in tagged and not venice_ready:
         warnings.append("JEV is tagged and enabled but the Venice API key is not configured.")
+    if (
+        worker.jev.enabled
+        and worker.llm.enabled
+        and worker.llm.verify_with_jev
+        and "jev_verify" in tagged
+        and not venice_ready
+    ):
+        warnings.append("JEV verification is tagged and enabled but the Venice API key is not configured.")
     if worker.llm.enabled and "llm" in tagged and not worker.llm.model and not provider_config.get("default_llm_model"):
         warnings.append("LLM is tagged and enabled but no model is selected.")
     if worker.llm.enabled and "llm" in tagged and not llm_configured:
