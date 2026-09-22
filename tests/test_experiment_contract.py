@@ -68,7 +68,7 @@ def test_primary_readiness_requires_execution_receipts_even_when_engine_exists(t
     assert any("execution receipt" in item for item in status["blockers"])
 
 
-def test_primary_readiness_accepts_only_matching_execution_receipts(tmp_path):
+def test_primary_readiness_requires_one_end_to_end_primary_receipt(tmp_path):
     contract=load_experiment_contract(ROOT/"config"/"experiment_contract.json")
     cook=tmp_path/"connectomes"/"worm-cook-2020"
     cook.mkdir(parents=True)
@@ -77,6 +77,21 @@ def test_primary_readiness_accepts_only_matching_execution_receipts(tmp_path):
     full.mkdir(parents=True)
     for name in contract["primary_pipeline"]["bee"]["required_files"]:
         (full/name).write_bytes(b"x")
+
+    # Verified install receipts bind dataset hashes into the primary run.
+    (cook/"receipt.json").write_text(json.dumps({
+        "pack_id":"worm-cook-2020",
+        "files":[{"name":"cook_2020_adjacency.xlsx","sha256":"cook-hash"}],
+    }))
+    (full/"receipt.json").write_text(json.dumps({
+        "pack_id":"fly-malecns-v1",
+        "files":[
+            {"name":"annotations.feather","sha256":"a"},
+            {"name":"neurotransmitters.feather","sha256":"b"},
+            {"name":"edges.feather","sha256":"c"},
+        ],
+    }))
+
     receipts=tmp_path/"execution_receipts"
     receipts.mkdir()
     (receipts/"cook2019_connectome--worm-cook-2020.json").write_text(json.dumps({
@@ -90,9 +105,58 @@ def test_primary_readiness_accepts_only_matching_execution_receipts(tmp_path):
         "synaptic_contacts":124177617,"full_connectome":True,"state_hash":"abc",
         "metadata":{"real_connectome_topology":True,"full_connectome":True},
     }))
+
+    # Separate stage receipts are deliberately insufficient.
+    status=experiment_readiness(
+        contract,data_dir=tmp_path,
+        supported_engines={"cook2019_connectome","malecns_full_v1"},
+    )
+    assert status["primary_experiment_ready"] is False
+    assert any("end-to-end" in item for item in status["blockers"])
+
+    (receipts/"primary--latest.json").write_text(json.dumps({
+        "receipt_version":2,
+        "kind":"primary_end_to_end",
+        "end_to_end":True,
+        "run_id":"primary-run",
+        "core_id":"primary-full",
+        "worker_hash":"worker-hash",
+        "architecture":["worm","worm-to-fly","fly","readout"],
+        "harness_passes":1,
+        "stages":{
+            "worm":{
+                "requested_engine":"cook2019_connectome",
+                "metadata":{"real_connectome_topology":True,"node_count":300},
+            },
+            "fly":{
+                "requested_engine":"malecns_full_v1",
+                "metadata":{
+                    "real_connectome_topology":True,
+                    "full_connectome":True,
+                    "node_count":166700,
+                    "edge_count":25582938,
+                    "synaptic_contacts":124177617,
+                },
+            },
+        },
+        "bridges":[{
+            "source":"worm",
+            "target":"fly",
+            "engine":"whole_state_projection_v1",
+            "source_values_used":300,
+            "stimulus_count":24,
+        }],
+        "datasets":{
+            "worm-cook-2020":json.loads((cook/"receipt.json").read_text()),
+            "fly-malecns-v1":json.loads((full/"receipt.json").read_text()),
+        },
+    }))
+
     status=experiment_readiness(
         contract,data_dir=tmp_path,
         supported_engines={"cook2019_connectome","malecns_full_v1"},
     )
     assert status["primary_experiment_ready"] is True
+    assert status["end_to_end_execution"]["run_id"] == "primary-run"
     assert status["blockers"] == []
+
