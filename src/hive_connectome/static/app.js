@@ -403,9 +403,10 @@ function traceRow(index,title,badge,body,klass=''){
 function renderRun(result,payload){
   const ex=result.execution||{};
   const role=ex.study_role||'experimental';
-  const decisionSource=result.decisions?.provider==='venice'?'Venice JEV':'local fixed readout';
+  const trace=ex.integration?.trace||[];
+  const calledComponents=trace.flatMap(cycle=>cycle.components||[]).filter(item=>item.called).length;
   $('runSummary').innerHTML='<div class="run-overview"><div><h3>'+escapeHtml(currentCore.name)+'</h3>'+
-    '<div class="meta">This run executed '+Object.keys(result.stages||{}).length+' neural stage(s), '+(ex.bridges||[]).length+' bridge(s), and used '+escapeHtml(decisionSource)+' for the structured decision output.</div></div>'+
+    '<div class="meta">Architecture: '+escapeHtml((ex.architecture||currentCore.architecture||[]).join(' → '))+' · cycles '+escapeHtml(ex.integration?.cycles||1)+' · '+escapeHtml(calledComponents)+' executed component call(s).</div></div>'+
     '<div><div class="trace-badge">'+escapeHtml(role.replaceAll('_',' '))+'</div><div class="run-id">'+escapeHtml(result.run_id)+'</div></div></div>';
 
   let rows=[];
@@ -413,55 +414,52 @@ function renderRun(result,payload){
   const payloadText=typeof payload==='string'?payload:pretty(payload);
   rows.push(traceRow(index++,'Input','entered HIVE','<div class="output-text">'+escapeHtml(payloadText)+'</div>'));
 
-  const stageOrder=currentCore.brain_chain||[];
-  for(const stage of stageOrder){
-    const obs=result.stages?.[stage.id];
-    if(!obs) continue;
-    const meta=obs.metadata||{};
-    const plan=currentPlan?.stages?.find(item=>item.id===stage.id);
-    let body='<div class="meta">'+escapeHtml(plan?.engine_label||obs.engine)+' · '+(meta.real_connectome_topology?'measured connectome topology':'synthetic/other topology')+'</div>';
-    body+='<div class="metrics-grid">'+metricItems(obs.metrics||{})+'</div>';
-    if(meta.state_hash) body+='<div class="meta">Full state hash: <span class="run-id">'+escapeHtml(shortId(meta.state_hash))+'</span></div>';
-    rows.push(traceRow(index++,plan?.name||stage.id,'neural stage',body,'success'));
+  for(const cycle of trace){
+    rows.push(traceRow(index++,'Integration cycle '+cycle.cycle,'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
+    for(const component of cycle.components||[]){
+      const called=Boolean(component.called);
+      const badge=called?'executed':'skipped';
+      let title=component.tag||component.type||'component';
+      let body='<div class="meta">Type: '+escapeHtml(component.type||'unknown')+'</div>';
 
-    const outgoing=(ex.bridges||[]).filter(bridge=>bridge.source===stage.id);
-    for(const bridge of outgoing){
-      const target=currentPlan?.stages?.find(item=>item.id===bridge.target)?.name||bridge.target;
-      const bridgeBody='<div class="meta">'+escapeHtml(bridge.engine)+' transformed the upstream neural observation into input for '+escapeHtml(target)+'.</div>'+
-        '<div class="metrics-grid"><div class="metric"><span>Stimulus channels</span><strong>'+escapeHtml(formatNumber(bridge.stimulus_count||0))+'</strong></div>'+
-        '<div class="metric"><span>Source step</span><strong>'+escapeHtml(formatNumber(bridge.source_step||0))+'</strong></div></div>';
-      rows.push(traceRow(index++,stage.id+' → '+target,'bridge',bridgeBody,'bridge'));
+      if(!called){
+        body+='<div class="meta">Reason: '+escapeHtml(component.reason||'disabled')+'</div>';
+        rows.push(traceRow(index++,title,badge,body,''));
+        continue;
+      }
+
+      if(component.type==='neural_stage'){
+        body='<div class="meta">'+escapeHtml(component.engine||'neural engine')+' · step '+escapeHtml(component.step??'—')+'</div>'+
+          '<div class="metrics-grid">'+metricItems(component.metrics||{})+'</div>'+
+          (component.state_hash?'<div class="meta">State hash: <span class="run-id">'+escapeHtml(shortId(component.state_hash))+'</span></div>':'');
+      }else if(component.type==='bridge'){
+        body='<div class="meta">'+escapeHtml(component.source+' → '+component.target)+' · '+escapeHtml(component.engine||'bridge')+'</div>'+
+          '<div class="metrics-grid"><div class="metric"><span>Stimulus channels</span><strong>'+escapeHtml(formatNumber(component.stimulus_count||0))+'</strong></div><div class="metric"><span>Source step</span><strong>'+escapeHtml(formatNumber(component.source_step||0))+'</strong></div></div>';
+      }else if(component.type==='neural_readout'){
+        const hashes=Object.entries(component.state_hashes||{}).map(([stage,hash])=>stage+': '+shortId(hash)).join(' · ');
+        body='<div class="meta">Whole-state representation built for: '+escapeHtml((component.stages||[]).join(', ')||'no neural stage yet')+'</div>'+
+          (hashes?'<div class="meta">'+escapeHtml(hashes)+'</div>':'');
+      }else if(component.type==='jev'){
+        body='<div class="meta">Real Venice Decisions call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'</div>';
+      }else if(component.type==='llm'){
+        body='<div class="meta">Real '+escapeHtml(component.provider||'LLM')+' call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+' · feedback '+escapeHtml(formatNumber(component.neural_feedback))+'</div>';
+      }else if(component.type==='jev_verification'){
+        body='<div class="meta">Real Venice verification call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'</div>';
+      }else if(component.type==='feedback'){
+        body='<div class="meta">Bounded modulation '+escapeHtml(formatNumber(component.modulation))+' · '+(component.applied?'applied to '+escapeHtml((component.targets||[]).join(', ')):'not applied because no later same-input neural execution remained')+'</div>';
+      }
+      rows.push(traceRow(index++,title,badge,body,called?'success':''));
     }
   }
 
-  const jev=ex.jev||{};
-  if(jev.requested){
-    if(jev.called){
-      const transport=result.decisions?.transport||{};
-      let body='<div class="meta">A real Venice Decisions call consumed the recorded experiment state. These outputs are JEV judgments, not labels discovered by the connectome itself.</div>';
-      body+=decisionsHtml(result.decisions);
-      body+='<div class="meta">Model: '+escapeHtml(jev.model||'—')+' · HTTP '+escapeHtml(transport.http_status??'—')+' · call '+escapeHtml(shortId(jev.call_id||transport.call_id))+' · '+escapeHtml(formatNumber(transport.latency_ms))+' ms</div>';
-      rows.push(traceRow(index++,'JEV decision','external call',body,'external'));
-    }else{
-      rows.push(traceRow(index++,'JEV decision','not called','<div class="warning">JEV was requested but no completed Venice call is recorded.</div>','external'));
-    }
-  }else{
-    rows.push(traceRow(index++,'Fixed local readout','JEV disabled','<div class="meta">HIVE derived the structured decision fields locally from the final neural observation. This is a deterministic engineering readout, not JEV.</div>'+decisionsHtml(result.decisions)));
+  if(ex.jev?.called){
+    rows.push(traceRow(index++,'Final JEV decision','result',decisionsHtml(result.decisions),'external'));
+  }
+  if(ex.llm?.called && result.llm){
+    rows.push(traceRow(index++,'Final LLM output','result','<div class="output-text">'+escapeHtml(result.llm.text||'(empty response)')+'</div>','external'));
   }
 
-  const llm=ex.llm||{};
-  if(llm.requested){
-    if(llm.called && result.llm){
-      const transport=result.llm.transport||{};
-      const body='<div class="meta">External language reasoning after the neural/JEV state. Provider: '+escapeHtml(result.llm.provider)+' · model: '+escapeHtml(result.llm.model||'—')+' · HTTP '+escapeHtml(transport.http_status??'—')+' · call '+escapeHtml(shortId(llm.call_id||transport.call_id))+'</div>'+
-        '<div class="output-text">'+escapeHtml(result.llm.text||'(empty response)')+'</div>';
-      rows.push(traceRow(index++,'Language model','external call',body,'external'));
-    }else{
-      rows.push(traceRow(index++,'Language model','not called','<div class="meta">The LLM layer was enabled but its activation rule did not produce a completed model call, or the provider/model was unavailable.</div>','external'));
-    }
-  }
-
-  const finalBody='<div class="meta">Run persisted with '+escapeHtml(currentCore.outputs.recording_level)+' recording. Modulation value: '+escapeHtml(formatNumber(result.modulation))+'.</div>'+
+  const finalBody='<div class="meta">Run persisted with '+escapeHtml(currentCore.outputs.recording_level)+' recording. Final modulation: '+escapeHtml(formatNumber(result.modulation))+'.</div>'+
     '<div class="meta">Labels: '+escapeHtml((result.labels||[]).join(' · ')||'none')+'</div>'+
     ((result.unresolved||[]).length?'<div class="warning">'+escapeHtml(result.unresolved.join(' · '))+'</div>':'');
   rows.push(traceRow(index++,'Recorded result','saved',finalBody,'success'));
