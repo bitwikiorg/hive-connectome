@@ -193,7 +193,8 @@ def build_experiment_plan(
         "stages": stages,
         "bridges": bridges,
         "architecture": architecture,
-        "integration_cycles": worker.runtime.integration_cycles,
+        "harness_passes": worker.runtime.resolved_harness_passes,
+        "integration_cycles": worker.runtime.resolved_harness_passes,
         "jev": {
             "enabled": worker.jev.enabled,
             "provider": worker.jev.provider,
