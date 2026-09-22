@@ -158,6 +158,22 @@ def _primary_end_to_end_status(data_dir: Path, contract: dict[str, Any]) -> dict
         valid = False
         mismatches["resolved_config_hash"] = "missing"
 
+    for artifact_kind in ("recording_artifacts", "context_artifacts"):
+        artifacts = receipt.get(artifact_kind) or []
+        if not artifacts:
+            valid = False
+            mismatches[artifact_kind] = "missing"
+            continue
+        missing_artifacts = [
+            relative for relative in artifacts
+            if not (data_dir / str(relative)).is_file()
+        ]
+        if missing_artifacts:
+            valid = False
+            mismatches[artifact_kind] = {
+                "missing_files": missing_artifacts,
+            }
+
     if (receipt.get("input_encoders") or {}).get(
         larva_item[0] if larva_item else "", "engine_default"
     ) != "engine_default":
