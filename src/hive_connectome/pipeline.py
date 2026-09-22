@@ -689,6 +689,8 @@ class HivePipeline:
                         "jev_enabled": jev_enabled,
                         "llm_enabled": llm_enabled,
                         "architecture": architecture,
+                        "harness_pass": cycle_index + 1,
+                        "harness_passes": integration_cycles,
                         "integration_cycle": cycle_index + 1,
                         "integration_cycles": integration_cycles,
                     },
@@ -754,7 +756,14 @@ class HivePipeline:
                     observation.metadata["architecture_index"] = component_index
 
                     if worker.outputs.recording_level == "full":
-                        self._record_full_state(run_id, stage, engine, observation)
+                        self._record_full_state(
+                            run_id,
+                            stage,
+                            engine,
+                            observation,
+                            cycle_index=cycle_index,
+                            component_index=component_index,
+                        )
                     self._record_stage_execution(run_id, worker, stage, observation)
                     observations[tag] = observation
                     invalidate_readout()
@@ -807,9 +816,15 @@ class HivePipeline:
                         raise RuntimeError(
                             f"bridge {tag} target stage is unavailable: {bridge.target}"
                         )
+                    source_engine = engines.get(bridge.source)
+                    if source_engine is None:
+                        raise RuntimeError(
+                            f"bridge {tag} source engine is unavailable: {bridge.source}"
+                        )
                     bridged, trace = self._bridge_payload(
                         bridge,
                         source,
+                        source_engine,
                         target_engine,
                         event=req.event.payload,
                     )
@@ -833,9 +848,13 @@ class HivePipeline:
 
                 if tag == "readout":
                     decision_state = build_readout()
-                    decision_state_hash = hashlib.sha256(
-                        _canonical_bytes(decision_state)
-                    ).hexdigest()
+                    decision_state_hash, decision_state_artifact = self._record_context(
+                        run_id,
+                        cycle_index=cycle_index,
+                        component_index=component_index,
+                        tag="readout",
+                        payload=decision_state,
+                    )
                     components.append({
                         "tag": tag,
                         "type": "neural_readout",
@@ -846,6 +865,7 @@ class HivePipeline:
                             for stage_id, item in decision_state["neural_state"].items()
                         },
                         "context_hash": decision_state_hash,
+                        "context_artifact": decision_state_artifact,
                     })
                     continue
 
@@ -875,12 +895,14 @@ class HivePipeline:
                         jev_call_count += 1
                         latest_jev_decision = decisions
                         latest_jev_context_hash = decision_state_hash
+                        latest_jev_context_artifact = decision_state_artifact
                         self._store_transport(
                             run_id,
                             f"jev:cycle-{cycle_index + 1}:component-{component_index}",
                             decisions.transport,
                         )
                         call_id = decisions.transport.get("call_id")
+                        latest_jev_call_id = call_id
                         if call_id:
                             provider_call_ids.append(call_id)
                             cycle_provider_ids.append(call_id)
