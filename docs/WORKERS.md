@@ -35,7 +35,7 @@ JEV off / LLM on
 JEV on  / LLM on
 ```
 
-The data environment, prompts, neural settings, architecture tags, integration-cycle count, task, and expected output stay identical.
+The data environment, prompts, neural settings, architecture tags, harness-pass count, task, and expected output stay identical unless one of those fields is the explicitly declared experimental variable.
 
 That makes JEV and LLM true ablations.
 
