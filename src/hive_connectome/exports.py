@@ -56,16 +56,53 @@ def _safe_artifact(data_dir: Path, relative: str) -> Path | None:
     return path if path.is_file() else None
 
 
-def _run_artifacts(runs: list[dict[str, Any]], data_dir: Path) -> list[tuple[str, Path]]:
+def _collect_artifact(
+    artifacts: dict[str, Path],
+    data_dir: Path,
+    relative: Any,
+) -> None:
+    if not relative:
+        return
+    path = _safe_artifact(data_dir, str(relative))
+    if path is not None:
+        artifacts[str(relative)] = path
+
+
+def _run_state_artifacts(runs: list[dict[str, Any]], data_dir: Path) -> list[tuple[str, Path]]:
     artifacts: dict[str, Path] = {}
     for run in runs:
         for stage in run.get("stages", {}).values():
-            relative = stage.get("metadata", {}).get("recording_artifact")
-            if not relative:
-                continue
-            path = _safe_artifact(data_dir, str(relative))
-            if path is not None:
-                artifacts[str(relative)] = path
+            metadata = stage.get("metadata", {})
+            _collect_artifact(artifacts, data_dir, metadata.get("recording_artifact"))
+            for relative in metadata.get("recording_artifacts", []) or []:
+                _collect_artifact(artifacts, data_dir, relative)
+        for cycle in run.get("execution", {}).get("integration", {}).get("trace", []) or []:
+            for component in cycle.get("components", []) or []:
+                _collect_artifact(
+                    artifacts,
+                    data_dir,
+                    component.get("recording_artifact"),
+                )
+    return sorted(artifacts.items())
+
+
+def _run_context_artifacts(runs: list[dict[str, Any]], data_dir: Path) -> list[tuple[str, Path]]:
+    artifacts: dict[str, Path] = {}
+    for run in runs:
+        for cycle in run.get("execution", {}).get("integration", {}).get("trace", []) or []:
+            for component in cycle.get("components", []) or []:
+                _collect_artifact(
+                    artifacts,
+                    data_dir,
+                    component.get("context_artifact"),
+                )
+                for source in (component.get("sources") or {}).values():
+                    if isinstance(source, dict):
+                        _collect_artifact(
+                            artifacts,
+                            data_dir,
+                            source.get("context_artifact"),
+                        )
     return sorted(artifacts.items())
 
 
@@ -165,9 +202,15 @@ def build_experiment_export(
         for worker in workers.list()
         if worker_id is None or worker.id == worker_id
     ]
-    artifacts = _run_artifacts(runs, data_dir)
+    artifacts = _run_state_artifacts(runs, data_dir)
+    contexts = _run_context_artifacts(runs, data_dir)
     compiled = _compiled_manifests(runs, data_dir)
     execution_receipts = _execution_receipts(data_dir)
+    experiment_runs = [
+        item for item in db.list_experiment_runs(limit=limit, worker_id=worker_id)
+        if any(run_id in run_ids for run_id in item.get("run_ids", []))
+        or not item.get("run_ids")
+    ]
 
     manifest = {
         "format": "hive-experiment-bundle",
@@ -181,6 +224,8 @@ def build_experiment_export(
             "provider_calls": len(calls),
             "cores": len(selected_workers),
             "state_artifacts": len(artifacts),
+            "context_artifacts": len(contexts),
+            "experiment_runs": len(experiment_runs),
             "compiled_graph_files": len(compiled),
             "execution_receipts": len(execution_receipts),
         },
@@ -188,10 +233,12 @@ def build_experiment_export(
             "runs.jsonl": "Lossless saved run records including stage observations, bridge traces, decisions, LLM output, and resolved Core config.",
             "events.jsonl": "Unique input events referenced by exported runs.",
             "provider_calls.jsonl": "Auditable external inference transport receipts. API keys are never exported.",
+            "experiment_runs.jsonl": "Matched evaluation manifests binding task-set hashes, variants, reset policy, scorer version, and run IDs.",
             "cores.json": "Core definitions at export time. Each run also embeds its resolved configuration.",
             "connectome_receipts.json": "Pinned dataset installation receipts available on this HIVE instance.",
             "execution_receipts.json": "Successful measured-topology execution receipts used by readiness gates.",
-            "recordings/": "Full per-stage numerical state artifacts for runs configured with recording_level=full.",
+            "recordings/": "Full per-stage numerical state artifacts preserved per harness pass/component.",
+            "contexts/": "Exact provider-facing readout/context artifacts referenced by execution trace hashes.",
             "compiled/": "Compiled graph manifest and neuron ID arrays needed to interpret recorded full-state vectors; sparse weights are not duplicated into exports.",
             "runs.csv": "Flattened analysis convenience table; not lossless.",
             "provider_calls.csv": "Flattened provider-call convenience table.",
@@ -203,8 +250,10 @@ def build_experiment_export(
 The JSONL files are canonical. CSV files are convenience projections and omit high-dimensional state.
 A run embeds the resolved Core configuration used at execution time so later edits do not rewrite history.
 Provider call receipts contain request/response hashes, models, endpoint, timing and status, but never API keys.
+Matched experiment manifests bind task sets, variants, reset policy, scorer version and run IDs.
+Provider-facing contexts are included under contexts/ so request-state hashes are inspectable and replayable.
 Connectome installation receipts prove downloaded bytes; execution receipts prove what measured graph actually ran.
-When recording_level=full, compressed numerical state artifacts are included under recordings/.
+When recording_level=full, compressed numerical state artifacts are included under recordings/ without overwriting earlier passes.
 Compiled graph manifests and neuron IDs are included when referenced so state vectors can be mapped back to graph nodes.
 Full sparse connectome weights are intentionally not duplicated into every export; the manifest carries source and array hashes.
 """
@@ -216,12 +265,15 @@ Full sparse connectome weights are intentionally not duplicated into every expor
         archive.writestr("runs.jsonl", _jsonl(runs))
         archive.writestr("events.jsonl", _jsonl(list(events_by_id.values())))
         archive.writestr("provider_calls.jsonl", _jsonl(calls))
+        archive.writestr("experiment_runs.jsonl", _jsonl(experiment_runs))
         archive.writestr("cores.json", json.dumps(selected_workers, indent=2))
         archive.writestr("connectome_receipts.json", json.dumps(_connectome_receipts(data_dir), indent=2))
         archive.writestr("execution_receipts.json", json.dumps(execution_receipts, indent=2))
         archive.writestr("runs.csv", _run_csv(runs))
         archive.writestr("provider_calls.csv", _provider_csv(calls))
         for relative, path in artifacts:
+            archive.write(path, arcname=relative)
+        for relative, path in contexts:
             archive.write(path, arcname=relative)
         for relative, path in compiled:
             archive.write(path, arcname=relative)
