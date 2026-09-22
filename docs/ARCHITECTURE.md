@@ -77,7 +77,7 @@ neural pass
 → neural refinement on the same input
 ```
 
-Every enabled member executes where its tag occurs on every harness pass. JEV is not an LLM gate. An LLM receives a JEV decision only when a real JEV call actually executed earlier in that cycle; otherwise no `jev_decision` field is fabricated. `jev_verify` can verify a prior LLM call without requiring a regular `jev` tag.
+Every enabled member executes where its tag occurs on every harness pass. JEV is not an LLM gate. An LLM receives a JEV decision only when a real JEV call actually executed earlier in that harness pass; otherwise no `jev_decision` field is fabricated. `jev_verify` can verify a prior LLM call without requiring a regular `jev` tag.
 
 The ablation switches remain independent:
 
