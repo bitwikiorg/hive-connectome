@@ -440,7 +440,7 @@ function renderRun(result,payload){
         body='<div class="meta">Whole-state representation built for: '+escapeHtml((component.stages||[]).join(', ')||'no neural stage yet')+'</div>'+
           (hashes?'<div class="meta">'+escapeHtml(hashes)+'</div>':'');
       }else if(component.type==='jev'){
-        body='<div class="meta">Real Venice Decisions call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'</div>';
+        body='<div class="meta">Real Venice Decisions call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+'. JEV outputs are typed inference judgments, not labels discovered by the connectome itself.</div>';
       }else if(component.type==='llm'){
         body='<div class="meta">Real '+escapeHtml(component.provider||'LLM')+' call · model '+escapeHtml(component.model||'—')+' · receipt '+escapeHtml(shortId(component.call_id))+' · feedback '+escapeHtml(formatNumber(component.neural_feedback))+'</div>';
       }else if(component.type==='jev_verification'){
