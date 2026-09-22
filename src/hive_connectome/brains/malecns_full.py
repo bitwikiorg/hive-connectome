@@ -43,6 +43,27 @@ def _canonical_bytes(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str, separators=(",", ":")).encode("utf-8")
 
 
+def _compiled_manifest_files_match(
+    manifest: dict[str, Any],
+    raw_root: Path,
+    compiled_root: Path,
+) -> bool:
+    """Verify that the compiled graph still matches both source and array bytes."""
+    try:
+        for name, spec in (manifest.get("source_files") or {}).items():
+            expected = spec.get("sha256") if isinstance(spec, dict) else None
+            path = raw_root / name
+            if not expected or not path.is_file() or _sha256(path) != expected:
+                return False
+        for name, expected in (manifest.get("arrays") or {}).items():
+            path = compiled_root / name
+            if not expected or not path.is_file() or _sha256(path) != expected:
+                return False
+    except OSError:
+        return False
+    return True
+
+
 def _require_columns(table: pa.Table, names: list[str], source: str) -> None:
     missing = [name for name in names if name not in table.column_names]
     if missing:
@@ -251,7 +272,11 @@ class MaleCNSFullBrain(MiniBrain):
             )
             mismatch = any(e is not None and int(e) != int(o) for e, o in zip(expected, observed))
             required_arrays = ["ids.npy", "data.npy", "indices.npy", "indptr.npy", "sensory_indices.npy"]
-            if mismatch or manifest.get("compiled_version") != COMPILED_VERSION or not all((compiled_root / name).exists() for name in required_arrays):
+            integrity_ok = (
+                all((compiled_root / name).exists() for name in required_arrays)
+                and _compiled_manifest_files_match(manifest, raw_root, compiled_root)
+            )
+            if mismatch or manifest.get("compiled_version") != COMPILED_VERSION or not integrity_ok:
                 manifest = compile_full_malecns(
                     raw_root,
                     compiled_root,
@@ -371,6 +396,14 @@ class MaleCNSFullBrain(MiniBrain):
                 "full_connectome": True,
                 "source": "MaleCNS v1.0 public flat connectome",
                 "compiled_manifest": str(self.compiled_root / "manifest.json"),
+                "compiled_manifest_sha256": hashlib.sha256(
+                    _canonical_bytes(self.manifest)
+                ).hexdigest(),
+                "compiled_source_hashes": {
+                    name: spec.get("sha256")
+                    for name, spec in self.manifest.get("source_files", {}).items()
+                },
+                "compiled_array_hashes": dict(self.manifest.get("arrays", {})),
                 "node_count": self.n,
                 "edge_count": int(self.W.nnz),
                 "synaptic_contacts": int(self.manifest["synaptic_contacts"]),
