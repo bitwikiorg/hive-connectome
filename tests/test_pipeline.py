@@ -17,7 +17,7 @@ async def test_offline_pipeline_runs(tmp_path:Path):
     assert out.fly.engine.startswith("malecns")
     assert out.execution["larva"]["real_connectome_topology"] is True
     assert out.execution["bee"]["real_connectome_topology"] is True
-    assert out.fly.step==1
+    assert out.fly.step==2
     assert out.decisions.provider=="brain-readout"
     assert db.list_events(1)[0]["payload"]["signal"]=="honey"
     db.close()
