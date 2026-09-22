@@ -522,9 +522,13 @@ class HivePipeline:
                 if tag in stage_specs:
                     stage = stage_specs[tag]
                     if not stage.enabled:
-                        raise RuntimeError(
-                            f"architecture requests disabled neural stage: {tag}"
-                        )
+                        components.append({
+                            "tag": tag,
+                            "type": "neural_stage",
+                            "called": False,
+                            "reason": "component_disabled",
+                        })
+                        continue
                     engine = engines.get(tag)
                     if engine is None:
                         raise RuntimeError(
@@ -587,6 +591,28 @@ class HivePipeline:
                         raise RuntimeError(
                             f"architecture requests disabled bridge: {tag}"
                         )
+                    source_stage = stage_specs.get(bridge.source)
+                    target_stage = stage_specs.get(bridge.target)
+                    if source_stage is not None and not source_stage.enabled:
+                        components.append({
+                            "tag": tag,
+                            "type": "bridge",
+                            "called": False,
+                            "reason": "source_component_disabled",
+                            "source": bridge.source,
+                            "target": bridge.target,
+                        })
+                        continue
+                    if target_stage is not None and not target_stage.enabled:
+                        components.append({
+                            "tag": tag,
+                            "type": "bridge",
+                            "called": False,
+                            "reason": "target_component_disabled",
+                            "source": bridge.source,
+                            "target": bridge.target,
+                        })
+                        continue
                     source = observations.get(bridge.source)
                     if source is None:
                         raise RuntimeError(
@@ -891,6 +917,18 @@ class HivePipeline:
                 "cycle": cycle_index + 1,
                 "architecture": architecture,
                 "components": components,
+                "jev_called": any(
+                    item.get("type") == "jev" and item.get("called")
+                    for item in components
+                ),
+                "llm_called": any(
+                    item.get("type") == "llm" and item.get("called")
+                    for item in components
+                ),
+                "verification_called": any(
+                    item.get("type") == "jev_verification" and item.get("called")
+                    for item in components
+                ),
                 "provider_call_ids": cycle_provider_ids,
             })
 
