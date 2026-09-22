@@ -137,8 +137,8 @@ function updateLayerExplanations(){
     :'Disabled as an ablation. Any jev tags are recorded as skipped and no JEV network call occurs.';
   const provider=$('llmProvider').value;
   $('llmExplanation').textContent=$('llmEnabled').checked
-    ?(llmTagged?'Enabled. '+(provider==='venice'?'Venice':'LM Studio')+' is called exactly where the llm tag appears.':'Enabled in configuration, but no llm tag is present in this architecture.')
-    :'Disabled as an ablation. Any llm tags are recorded as skipped and no language-model call occurs.';
+    ?(llmTagged?'Enabled. '+(provider==='venice'?'Venice':'LM Studio')+' is called exactly where the llm tag appears. It is an integrated HIVE component, but it is not part of the biological connectome.':'Enabled in configuration, but no llm tag is present in this architecture. The model is not part of the biological connectome.')
+    :'Disabled as an ablation. Any llm tags are recorded as skipped and no language-model call occurs. The model is not part of the biological connectome.';
 }
 
 function localStagePlan(stage){
