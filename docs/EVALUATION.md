@@ -7,9 +7,11 @@ The worker defines:
 ```text
 data environment
 experiment question
-Larva+Bee configuration
+ordered architecture tags
+neural stage + bridge configuration
 JEV questions
 LLM prompt
+integration-cycle count
 runtime behavior
 expected output
 ```
@@ -25,7 +27,7 @@ For one worker and one fixed test set, run:
 | `jev_off_llm_on` | off | on |
 | `jev_on_llm_on` | on | on |
 
-Nothing else should change.
+Nothing else should change. In particular, the architecture tags and integration-cycle count stay identical across the four JEV/LLM ablations; only the two inference toggles change. If architecture order or cycle count is the variable under study, that must be a separate named experiment.
 
 Measure:
 
