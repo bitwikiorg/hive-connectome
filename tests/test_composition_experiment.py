@@ -350,3 +350,78 @@ async def test_primary_control_bridge_cannot_write_readiness_receipt(tmp_path: P
     assert "primary_execution_receipt" not in out.execution
     assert not (tmp_path / "execution_receipts" / "primary--latest.json").exists()
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_neural_stage_engine_override_supports_synthetic_control(tmp_path: Path):
+    workers = _workers(tmp_path)
+    db = HiveDB(tmp_path / "hive.db")
+    pipeline = HivePipeline(db, workers, data_dir=tmp_path)
+
+    out = await pipeline.run(PipelineRequest(
+        worker_id="scout",
+        jev_enabled=False,
+        llm_enabled=False,
+        harness_passes=1,
+        architecture=["worm", "worm-to-fly", "fly", "readout"],
+        stage_engines={"fly": "synthetic"},
+        event=EventEnvelope(payload={"x": 8}),
+    ))
+
+    assert out.fly is not None
+    assert out.fly.engine == "synthetic-deterministic-v1"
+    assert out.execution["stage_engine_overrides"] == {"fly": "synthetic"}
+    assert out.execution["primary_experiment"] is False
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_shuffled_full_malecns_is_control_not_primary(tmp_path: Path):
+    install_runtime_fixtures(tmp_path)
+    write_malecns_full_fixture(tmp_path)
+    workers = WorkerStore(
+        tmp_path / "workers.json",
+        ROOT / "config" / "workers.default.json",
+    )
+    primary = workers.get("primary-full")
+    primary.jev.enabled = False
+    primary.llm.enabled = False
+    primary.runtime.harness_passes = 1
+    workers.save(primary)
+
+    db = HiveDB(tmp_path / "hive.db")
+    pipeline = HivePipeline(
+        db,
+        workers,
+        data_dir=tmp_path,
+        experiment_contract_path=ROOT / "config" / "experiment_contract.json",
+    )
+    out = await pipeline.run(PipelineRequest(
+        worker_id="primary-full",
+        jev_enabled=False,
+        llm_enabled=False,
+        mode="offline",
+        harness_passes=1,
+        architecture=["worm", "worm-to-fly", "fly", "readout"],
+        stage_config_overrides={
+            "fly": {
+                "expected_neurons": 4,
+                "expected_directed_connections": 4,
+                "expected_synapses": 26,
+                "substeps": 3,
+                "sample_size": 4,
+                "topology_transform": "shuffle_presynaptic_v1",
+                "topology_seed": 17,
+            }
+        },
+        event=EventEnvelope(payload={"signal": "shuffle-control"}),
+    ))
+
+    assert out.fly is not None
+    assert out.fly.metadata["control_topology"] is True
+    assert out.fly.metadata["real_connectome_topology"] is False
+    assert out.fly.metadata["topology_transform"] == "shuffle_presynaptic_v1"
+    assert out.execution["study_role"] == "control_only"
+    assert out.execution["primary_experiment"] is False
+    assert "primary_execution_receipt" not in out.execution
+    db.close()
