@@ -112,7 +112,7 @@ function syncControlsFromCore(){
   $('coreName').textContent=currentCore.name;
   $('coreObjective').textContent=currentCore.experiment?.objective||currentCore.description||'No objective recorded.';
   $('architectureTags').value=architectureArray(currentCore.architecture).join(',');
-  $('integrationCycles').value=currentCore.runtime?.integration_cycles||2;
+  $('integrationCycles').value=currentCore.runtime?.harness_passes||currentCore.runtime?.integration_cycles||2;
   $('jevEnabled').checked=Boolean(currentCore.jev?.enabled);
   $('jevModel').value=currentCore.jev?.model||'jev-latest';
   $('jevFeedback').checked=Boolean(currentCore.jev?.feedback_to_brain);
@@ -171,8 +171,11 @@ function bridgeNode(source,target){
   return '<div class="bridge-editor"><strong>'+escapeHtml(source)+' → '+escapeHtml(target)+'</strong>'+
     '<div class="meta">'+escapeHtml(label)+'</div>'+
     '<select onchange="setBridgeEngine(\''+escapeHtml(bridge.id)+'\',this.value)">'+
-      '<option value="state_projection_v1" '+(bridge.engine==='state_projection_v1'?'selected':'')+'>Neural state projection</option>'+
+      '<option value="whole_state_projection_v1" '+(bridge.engine==='whole_state_projection_v1'?'selected':'')+'>Whole-state projection</option>'+
+      '<option value="state_projection_v1" '+(bridge.engine==='state_projection_v1'?'selected':'')+'>Legacy first-N excerpt control</option>'+
+      '<option value="random_projection_v1" '+(bridge.engine==='random_projection_v1'?'selected':'')+'>Random projection control</option>'+
       '<option value="hash_projection_v1" '+(bridge.engine==='hash_projection_v1'?'selected':'')+'>Hash projection control</option>'+
+      '<option value="zero_bridge_v1" '+(bridge.engine==='zero_bridge_v1'?'selected':'')+'>Zero / null bridge</option>'+
       '<option value="identity_payload_v1" '+(bridge.engine==='identity_payload_v1'?'selected':'')+'>Payload handoff</option>'+
     '</select></div>';
 }
@@ -229,7 +232,7 @@ function renderPlan(){
       const sources=[];
       if($('jevFeedback').checked) sources.push('JEV');
       if($('llmFeedback').checked) sources.push('LLM');
-      html+='<div class="pipeline-node'+(sources.length?'':' disabled')+'"><div class="node-type">Recurrent adapter</div><strong>Feedback</strong><div class="node-engine">Independent bounded modulation from '+escapeHtml(sources.join(' + ')||'no enabled source')+'</div><div class="node-detail">Each source uses its own target set. Affects later neural tags in this cycle or the next integration cycle.</div></div>';
+      html+='<div class="pipeline-node'+(sources.length?'':' disabled')+'"><div class="node-type">Recurrent adapter</div><strong>Feedback</strong><div class="node-engine">Independent bounded modulation from '+escapeHtml(sources.join(' + ')||'no enabled source')+'</div><div class="node-detail">Each source uses its own target set. Affects later neural tags in this pass or the next harness pass.</div></div>';
       continue;
     }
     html+='<div class="pipeline-node disabled"><div class="node-type">Unknown tag</div><strong>'+escapeHtml(tag)+'</strong><div class="node-engine">Will be rejected by backend validation</div></div>';
@@ -275,7 +278,9 @@ function setBridgeEngine(id,engine){
 function updateCoreControls(){
   if(!currentCore) return;
   currentCore.architecture=$('architectureTags').value.split(',').map(value=>value.trim()).filter(Boolean);
-  currentCore.runtime.integration_cycles=Math.max(1,Math.min(8,Number($('integrationCycles').value)||1));
+  const passes=Math.max(1,Math.min(8,Number($('integrationCycles').value)||1));
+  currentCore.runtime.harness_passes=passes;
+  currentCore.runtime.integration_cycles=passes;
   currentCore.jev.enabled=$('jevEnabled').checked;
   currentCore.jev.model=$('jevModel').value.trim()||'jev-latest';
   currentCore.jev.feedback_to_brain=$('jevFeedback').checked;
@@ -419,7 +424,7 @@ function renderRun(result,payload){
   const trace=ex.integration?.trace||[];
   const calledComponents=trace.flatMap(cycle=>cycle.components||[]).filter(item=>item.called).length;
   $('runSummary').innerHTML='<div class="run-overview"><div><h3>'+escapeHtml(currentCore.name)+'</h3>'+
-    '<div class="meta">Architecture: '+escapeHtml(architectureArray(ex.architecture||currentCore.architecture).join(' → '))+' · cycles '+escapeHtml(ex.integration?.cycles||1)+' · '+escapeHtml(calledComponents)+' executed component call(s).</div></div>'+
+    '<div class="meta">Architecture: '+escapeHtml(architectureArray(ex.architecture||currentCore.architecture).join(' → '))+' · harness passes '+escapeHtml(ex.integration?.harness_passes||ex.integration?.cycles||1)+' · '+escapeHtml(calledComponents)+' executed component call(s).</div></div>'+
     '<div><div class="trace-badge">'+escapeHtml(role.replaceAll('_',' '))+'</div><div class="run-id">'+escapeHtml(result.run_id)+'</div></div></div>';
 
   let rows=[];
@@ -428,7 +433,7 @@ function renderRun(result,payload){
   rows.push(traceRow(index++,'Input','entered HIVE','<div class="output-text">'+escapeHtml(payloadText)+'</div>'));
 
   for(const cycle of trace){
-    rows.push(traceRow(index++,'Integration cycle '+cycle.cycle,'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
+    rows.push(traceRow(index++,'Harness pass '+cycle.cycle,'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
     for(const component of cycle.components||[]){
       const called=Boolean(component.called);
       const typeLabel={
