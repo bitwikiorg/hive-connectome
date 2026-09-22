@@ -629,6 +629,7 @@ class HivePipeline:
         harness_passes: int,
         stage_execution: dict[str, Any],
         bridges: list[dict[str, Any]],
+        input_encoders: dict[str, str],
     ) -> str | None:
         cook_stage = next(
             (
@@ -651,11 +652,31 @@ class HivePipeline:
         if cook_stage is None or fly_stage is None:
             return None
 
+        canonical_bridge_engine = "whole_state_projection_v1"
+        if self.experiment_contract_path and self.experiment_contract_path.exists():
+            try:
+                canonical_bridge_engine = (
+                    load_experiment_contract(self.experiment_contract_path)
+                    .get("primary_pipeline", {})
+                    .get("bridge", {})
+                    .get("engine", canonical_bridge_engine)
+                )
+            except Exception:
+                pass
+
+        # Control/null bridge or root-input variants must never promote the
+        # primary readiness receipt.
+        cook_input_encoder = input_encoders.get(cook_stage.id, "engine_default")
+        if cook_input_encoder != "engine_default":
+            return None
+
         matching_bridges = [
             item for item in bridges
             if item.get("source") == cook_stage.id
             and item.get("target") == fly_stage.id
+            and item.get("engine") == canonical_bridge_engine
             and item.get("stimulus_count") is not None
+            and int(item.get("source_values_used") or 0) > 0
         ]
         if not matching_bridges:
             return None
@@ -675,6 +696,13 @@ class HivePipeline:
                     datasets[str(pack_id)] = {"error": str(exc)}
 
         worker_payload = worker.model_dump(mode="json")
+        resolved_config = {
+            "worker": worker_payload,
+            "architecture": architecture,
+            "harness_passes": harness_passes,
+            "canonical_bridge_engine": canonical_bridge_engine,
+            "input_encoders": dict(input_encoders),
+        }
         receipt = {
             "receipt_version": 2,
             "kind": "primary_end_to_end",
@@ -685,8 +713,13 @@ class HivePipeline:
             "worker_hash": hashlib.sha256(
                 _canonical_bytes(worker_payload)
             ).hexdigest(),
+            "resolved_config_hash": hashlib.sha256(
+                _canonical_bytes(resolved_config)
+            ).hexdigest(),
             "architecture": architecture,
             "harness_passes": harness_passes,
+            "canonical_bridge_engine": canonical_bridge_engine,
+            "input_encoders": dict(input_encoders),
             "stages": {
                 cook_stage.id: stage_execution.get(cook_stage.id),
                 fly_stage.id: stage_execution.get(fly_stage.id),
@@ -1528,6 +1561,7 @@ class HivePipeline:
             harness_passes=integration_cycles,
             stage_execution=stage_execution,
             bridges=all_bridge_trace,
+            input_encoders=dict(req.input_encoders),
         )
         if primary_receipt is not None:
             execution["primary_execution_receipt"] = primary_receipt
