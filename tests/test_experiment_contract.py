@@ -114,6 +114,13 @@ def test_primary_readiness_requires_one_end_to_end_primary_receipt(tmp_path):
     assert status["primary_experiment_ready"] is False
     assert any("end-to-end" in item for item in status["blockers"])
 
+    recordings=tmp_path/"recordings"/"primary-run"
+    recordings.mkdir(parents=True)
+    (recordings/"fly.npz").write_bytes(b"state")
+    contexts=tmp_path/"contexts"/"primary-run"
+    contexts.mkdir(parents=True)
+    (contexts/"readout.json").write_text("{}")
+
     (receipts/"primary--latest.json").write_text(json.dumps({
         "receipt_version":2,
         "kind":"primary_end_to_end",
@@ -125,6 +132,8 @@ def test_primary_readiness_requires_one_end_to_end_primary_receipt(tmp_path):
         "architecture":["worm","worm-to-fly","fly","readout"],
         "input_encoders":{},
         "harness_passes":1,
+        "recording_artifacts":["recordings/primary-run/fly.npz"],
+        "context_artifacts":["contexts/primary-run/readout.json"],
         "stages":{
             "worm":{
                 "requested_engine":"cook2019_connectome",
