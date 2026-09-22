@@ -24,8 +24,29 @@
       ],
       "execution_required": true
     },
-    "jev": {"role": "independent_toggle", "required": false},
-    "llm": {"role": "independent_toggle", "required": false}
+    "jev": {
+      "role": "independent_toggle",
+      "required": false
+    },
+    "llm": {
+      "role": "independent_toggle",
+      "required": false
+    },
+    "architecture": {
+      "format": "ordered_component_tags",
+      "baseline": [
+        "worm",
+        "worm-to-fly",
+        "fly",
+        "readout",
+        "jev",
+        "llm",
+        "jev_verify",
+        "feedback"
+      ],
+      "architecture_is_experimental_variable": true,
+      "semantics": "tag order is execution order; repeated tags repeat calls; removed tags remove components"
+    }
   },
   "invariants": [
     "The full MaleCNS graph is the primary Bee substrate and may not be replaced by a subgraph in the primary experiment.",
@@ -35,15 +56,37 @@
     "Primary experiment readiness requires both full primary substrates installed, verified, and actually executed by their declared engines.",
     "JEV and LLM are independent toggles; changing either must not change substrate, data environment, task, prompt, or evaluation case.",
     "No silent fallback may satisfy a requested experimental stage.",
-    "Inference output is not external action authority."
+    "Inference output is not external action authority.",
+    "The Core architecture is an ordered executable tag sequence; runtime, plan API, GUI, traces, and evaluation must resolve the same order.",
+    "Matched ablations must preserve the same integration-cycle count unless cycle count itself is the declared experimental variable.",
+    "JEV/LLM calls require a fresh readout after the most recent neural or bridge change."
   ],
   "controls": [
-    {"id": "malecns_locomotor_subgraph", "pack_id": "fly-malecns-locomotor", "role": "control_only"},
-    {"id": "synthetic_reservoir", "role": "control_only"},
-    {"id": "shuffled_connectome", "role": "control_only"},
-    {"id": "no_connectome", "role": "control_only"},
-    {"id": "larva_only", "role": "control_only"},
-    {"id": "bee_only", "role": "control_only"}
+    {
+      "id": "malecns_locomotor_subgraph",
+      "pack_id": "fly-malecns-locomotor",
+      "role": "control_only"
+    },
+    {
+      "id": "synthetic_reservoir",
+      "role": "control_only"
+    },
+    {
+      "id": "shuffled_connectome",
+      "role": "control_only"
+    },
+    {
+      "id": "no_connectome",
+      "role": "control_only"
+    },
+    {
+      "id": "larva_only",
+      "role": "control_only"
+    },
+    {
+      "id": "bee_only",
+      "role": "control_only"
+    }
   ],
   "promotion_gates": [
     "Implement a full MaleCNS engine that imports and propagates the complete pinned MaleCNS v1.0 graph.",
