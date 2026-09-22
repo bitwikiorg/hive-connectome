@@ -16,15 +16,19 @@ class OrderedJev:
 
     async def decide(self, state, questions, model=None):
         self.states.append(state)
-        return DecisionBundle(
-            provider="venice",
-            model=model or "jev-latest",
-            answers={
+        if list(questions) == ["supported"]:
+            answers = {"supported": {"type": "noul", "noul": 0.9}}
+        else:
+            answers = {
                 "meaningful_signal": {"type": "noul", "noul": 0.8},
                 "novelty": {"type": "score", "score": 1.0, "confidence": 0.9},
                 "route": {"type": "choice", "choice": "store", "confidence": 0.9},
                 "llm_needed": {"type": "noul", "noul": 0.5},
-            },
+            }
+        return DecisionBundle(
+            provider="venice",
+            model=model or "jev-latest",
+            answers=answers,
             confidence=0.9,
         )
 
