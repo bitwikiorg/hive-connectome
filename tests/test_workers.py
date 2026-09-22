@@ -17,14 +17,14 @@ def test_worker_store_persists_full_settings(tmp_path:Path):
     assert loaded.data_environment.mode=="manual"
 
 
-def test_legacy_jev_threshold_migrates_to_gate_threshold(tmp_path:Path):
+def test_legacy_jev_gating_fields_are_ignored(tmp_path:Path):
     from hive_connectome.workers import WorkerSpec
     import json
     defaults=Path(__file__).parents[1]/"config"/"workers.default.json"
     raw=json.loads(defaults.read_text())["workers"][0]
-    raw["jev"]["confidence_threshold"] = raw["jev"].pop("llm_gate_threshold")
+    raw["jev"]["llm_gate_threshold"] = 0.7
+    raw["jev"]["confidence_threshold"] = 0.6
     worker=WorkerSpec.model_validate(raw)
-    assert 0 <= worker.jev.llm_gate_threshold <= 1
     dumped=worker.model_dump(mode="json")
-    assert "llm_gate_threshold" in dumped["jev"]
+    assert "llm_gate_threshold" not in dumped["jev"]
     assert "confidence_threshold" not in dumped["jev"]
