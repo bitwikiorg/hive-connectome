@@ -112,7 +112,7 @@
         "write_labels": true,
         "emit_to_hivemind": false,
         "next_workers": [],
-        "recording_level": "trace"
+        "recording_level": "full"
       },
       "architecture": "worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback"
     },
