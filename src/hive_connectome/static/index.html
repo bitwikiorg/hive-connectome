@@ -47,10 +47,17 @@
 
     <div class="builder-grid">
       <div class="config-card">
+        <div class="config-title"><span>Executable architecture</span></div>
+        <p class="meta">Comma-separated component tags. Their order is the order HIVE executes them.</p>
+        <label>Component tags<input id="architectureTags" placeholder="worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback" onchange="updateCoreControls()"></label>
+        <label>Same-input integration cycles<input id="integrationCycles" type="number" min="1" max="8" step="1" onchange="updateCoreControls()"></label>
+      </div>
+
+      <div class="config-card">
         <div class="config-title"><span>JEV decision layer</span><label class="switch"><input id="jevEnabled" type="checkbox" onchange="updateCoreControls()"><span></span></label></div>
         <p id="jevExplanation" class="meta"></p>
         <label>Venice decision model<input id="jevModel" onchange="updateCoreControls()"></label>
-        <label class="inline-check"><input id="jevFeedback" type="checkbox" onchange="updateCoreControls()"> Feed JEV modulation back into enabled neural stages</label>
+        <label class="inline-check"><input id="jevFeedback" type="checkbox" onchange="updateCoreControls()"> Allow JEV to contribute to the <code>feedback</code> tag</label>
       </div>
 
       <div class="config-card">
@@ -60,7 +67,7 @@
           <label>Provider<select id="llmProvider" onchange="updateCoreControls()"><option value="venice">Venice</option><option value="lmstudio">LM Studio</option></select></label>
           <label>Model<input id="llmModel" placeholder="model id" onchange="updateCoreControls()"></label>
         </div>
-        <label>When to call<select id="llmActivation" onchange="updateCoreControls()"><option value="always">Always</option><option value="jev_gate">JEV-gated; if JEV is off, call the LLM directly</option><option value="manual">Only when explicitly forced</option></select></label>
+        <p class="meta">When the <code>llm</code> tag is present and LLM is enabled, the configured provider is called at that exact point in the architecture.</p>
       </div>
 
       <div class="config-card">
