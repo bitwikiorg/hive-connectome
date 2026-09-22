@@ -424,9 +424,17 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
     @app.post("/api/evals/run")
     async def run_eval(req: EvalRequest):
         try:
-            worker_store.get(req.worker_id)
+            eval_worker = worker_store.get(req.worker_id)
         except KeyError:
             raise HTTPException(404, "worker not found")
+        worker_hash = hashlib.sha256(
+            json.dumps(
+                eval_worker.model_dump(mode="json"),
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            ).encode("utf-8")
+        ).hexdigest()
         experiment_run_id = str(uuid4())
         task_set_hash = canonical_task_set_hash(req.cases)
         variants = req.resolved_variants()
@@ -449,7 +457,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             variant_payload = variant.model_dump(mode="json")
             variant_hash = hashlib.sha256(
                 json.dumps(
-                    variant_payload,
+                    {"worker_hash": worker_hash, "variant": variant_payload},
                     sort_keys=True,
                     separators=(",", ":"),
                     default=str,
@@ -485,6 +493,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             architecture=variant.architecture,
                             harness_passes=variant.harness_passes,
                             feedback_enabled=variant.feedback_enabled,
+                            bridge_engines=variant.bridge_engines,
                         ))
                         route = result.decisions.answers.get("route", {}).get("choice")
                         task_score = score_task_result(case, result.task_result, route)
@@ -556,6 +565,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         experiment_record = {
             "experiment_run_id": experiment_run_id,
             "worker_id": req.worker_id,
+            "worker_hash": worker_hash,
             "task_set_hash": task_set_hash,
             "scorer_version": req.scorer_version,
             "reset_policy": req.reset_policy,
