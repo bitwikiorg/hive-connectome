@@ -410,6 +410,49 @@ class HivePipeline:
         except Exception:
             return 0.5
 
+    @staticmethod
+    def _validate_jev_bundle(
+        bundle: DecisionBundle,
+        questions: dict[str, JevQuestion],
+    ) -> None:
+        for name, question in questions.items():
+            answer = bundle.answers.get(name)
+            if not isinstance(answer, dict):
+                raise RuntimeError(f"JEV response missing structured answer: {name}")
+
+            if question.type == DecisionType.NOUL:
+                if "noul" not in answer:
+                    raise RuntimeError(f"JEV noul answer missing value: {name}")
+                try:
+                    value = float(answer["noul"])
+                except Exception as exc:
+                    raise RuntimeError(f"JEV noul answer is not numeric: {name}") from exc
+                if not 0.0 <= value <= 1.0:
+                    raise RuntimeError(f"JEV noul answer outside [0,1]: {name}")
+
+            elif question.type == DecisionType.SCORE:
+                if "score" not in answer:
+                    raise RuntimeError(f"JEV score answer missing value: {name}")
+                try:
+                    float(answer["score"])
+                except Exception as exc:
+                    raise RuntimeError(f"JEV score answer is not numeric: {name}") from exc
+
+            elif question.type == DecisionType.CHOICE:
+                choice = answer.get("choice")
+                if not isinstance(choice, str) or not choice:
+                    raise RuntimeError(f"JEV choice answer missing value: {name}")
+                criteria = question.criteria
+                allowed = (
+                    set(criteria.keys())
+                    if isinstance(criteria, dict)
+                    else set(criteria or [])
+                )
+                if allowed and choice not in allowed:
+                    raise RuntimeError(
+                        f"JEV choice answer is outside declared criteria for {name}: {choice}"
+                    )
+
     def _store_transport(self, run_id: str, stage_id: str, transport: dict[str, Any] | None) -> None:
         if transport and transport.get("call_id"):
             self.db.insert_provider_call(transport, run_id=run_id, stage_id=stage_id)
@@ -982,6 +1025,7 @@ class HivePipeline:
                             worker.jev.questions,
                             model=worker.jev.model,
                         )
+                        self._validate_jev_bundle(decisions, worker.jev.questions)
                         jev_call_count += 1
                         latest_jev_decision = decisions
                         latest_jev_context_hash = decision_state_hash
@@ -1162,17 +1206,22 @@ class HivePipeline:
                             tag="jev-verify-context",
                             payload=verification_state,
                         )
+                        verification_questions = {
+                            "supported": JevQuestion(
+                                type=DecisionType.NOUL,
+                                instructions=(
+                                    "Is the LLM output supported by the supplied evidence without unsupported claims?"
+                                ),
+                            )
+                        }
                         verification = await self.venice.decide(
                             verification_state,
-                            {
-                                "supported": JevQuestion(
-                                    type=DecisionType.NOUL,
-                                    instructions=(
-                                        "Is the LLM output supported by the supplied evidence without unsupported claims?"
-                                    ),
-                                )
-                            },
+                            verification_questions,
                             model=worker.jev.model,
+                        )
+                        self._validate_jev_bundle(
+                            verification,
+                            verification_questions,
                         )
                         verification_call_count += 1
                         self._store_transport(
