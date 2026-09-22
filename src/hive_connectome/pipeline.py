@@ -730,6 +730,13 @@ class HivePipeline:
         architecture = list(req.architecture or worker.architecture)
         stage_specs = {stage.id: stage for stage in worker.brain_chain}
         bridge_specs = {bridge.id: bridge for bridge in worker.bridges}
+        for bridge_id, engine_name in req.bridge_engines.items():
+            bridge = bridge_specs.get(bridge_id)
+            if bridge is None:
+                raise RuntimeError(f"bridge override references unknown bridge: {bridge_id}")
+            raw_bridge = bridge.model_dump(mode="json")
+            raw_bridge["engine"] = engine_name
+            bridge_specs[bridge_id] = BridgeSpec.model_validate(raw_bridge)
         valid_tags = set(stage_specs) | set(bridge_specs) | {
             "readout", "jev", "llm", "jev_verify", "feedback"
         }
@@ -1436,6 +1443,7 @@ class HivePipeline:
             "primary_experiment": bool(uses_full_fly and uses_full_worm),
             "core_id": worker.id,
             "architecture": architecture,
+            "bridge_engine_overrides": dict(req.bridge_engines),
             "component_registry": {
                 **{tag: "neural_stage" for tag in stage_specs},
                 **{tag: "bridge" for tag in bridge_specs},
