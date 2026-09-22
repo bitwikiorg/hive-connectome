@@ -43,7 +43,7 @@ The full MaleCNS graph is the central Bee substrate. It is not an optional enhan
 
 - **Larva:** full corrected Cook C. elegans hermaphrodite connectome.
 - **Bee:** full MaleCNS v1.0 graph: 166,700 retained neurons, 25,582,938 directed connections, and 124,177,617 synaptic contacts in the pinned runtime contract.
-- **Bridge:** explicit, logged, configurable Core-stage handoff. The default biological chain uses `state_projection_v1`.
+- **Bridge:** explicit, logged, configurable Core-stage handoff. The canonical biological chain uses `whole_state_projection_v1`; excerpt/random/zero bridges are controls.
 
 ### Core and Hive
 
@@ -62,7 +62,7 @@ JEV OFF · LLM ON
 JEV ON  · LLM ON
 ```
 
-Those four runs must use the same substrate, data, prompt, task, and evaluation case. Every enabled inference member executes on every integration cycle; JEV is not an LLM gate.
+Those four runs must use the same substrate, data, prompt, task, and evaluation case. Every enabled inference member executes on every harness pass; JEV is not an LLM gate.
 
 ### Controls only
 
@@ -90,7 +90,7 @@ As of v0.7:
 - Experiment ZIP export with JSONL, CSV, provider receipts, execution receipts, and optional full state artifacts: **implemented**.
 - Primary readiness remains runtime-derived: **installed data and implemented code are not enough**.
 
-The primary experiment becomes READY only after the exact full datasets execute successfully and produce matching execution receipts.
+The primary experiment becomes READY only after the exact full datasets execute successfully in the canonical Cook → whole-state bridge → full MaleCNS path, preserve full per-pass state/context artifacts, and produce a matching end-to-end receipt.
 
 ## PROMOTION GATE
 
@@ -118,12 +118,12 @@ The Windows first-run script now installs the full required pack and performs a 
 7. Readiness is derived from the experiment contract plus execution receipts, not marketing copy.
 8. External inference claims require actual provider-call receipts, not a model-list response.
 9. JEV/LLM context must be derived from the complete executed neural state; arbitrary first-N state excerpts are forbidden as the primary neural representation.
-10. If JEV or an LLM is enabled, it executes on every integration cycle or the run fails explicitly.
-11. JEV/LLM feedback must affect a same-input neural refinement cycle when integration_cycles > 1.
+10. If JEV or an LLM is enabled, it executes on every harness pass or the run fails explicitly.
+11. JEV/LLM feedback must affect a same-input neural refinement cycle when harness_passes > 1.
 12. Core architecture order is defined by executable component tags; the runtime, plan API, GUI, traces, and tests must resolve the same ordered sequence.
 13. A JEV/LLM call may not consume stale neural context: a readout must follow the most recent neural/bridge change before a provider call.
 14. JEV and LLM feedback are independent sources with independent enable flags and target sets.
-15. LLM context may contain `jev_decision` only when a real regular JEV call executed earlier in that integration cycle.
+15. LLM context may contain `jev_decision` only when a real regular JEV call executed earlier in that harness pass.
 16. `jev_verify` may operate without a regular `jev` tag; it verifies the latest LLM output and includes prior JEV state only if that state actually exists.
 
 ## ROLLBACK RULE
