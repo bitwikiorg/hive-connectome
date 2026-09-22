@@ -250,6 +250,8 @@ class MaleCNSFullBrain(MiniBrain):
         threshold: float = 1.0,
         substeps: int = 5,
         sample_size: int = 2048,
+        topology_transform: str = "none",
+        topology_seed: int = 0,
     ):
         self.brain_id = brain_id
         self.raw_root = raw_root
@@ -257,6 +259,12 @@ class MaleCNSFullBrain(MiniBrain):
         self.expected_neurons = expected_neurons
         self.expected_directed_edges = expected_directed_edges
         self.expected_synaptic_contacts = expected_synaptic_contacts
+        self.topology_transform = str(topology_transform)
+        self.topology_seed = int(topology_seed)
+        if self.topology_transform not in {"none", "shuffle_presynaptic_v1"}:
+            raise ValueError(
+                f"unknown MaleCNS topology transform: {self.topology_transform}"
+            )
         manifest_path = compiled_root / "manifest.json"
         if manifest_path.exists():
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -301,12 +309,23 @@ class MaleCNSFullBrain(MiniBrain):
         self.input_candidates = np.load(compiled_root / "sensory_indices.npy", mmap_mode="r").astype(np.int32, copy=False)
         if len(self.input_candidates) == 0:
             self.input_candidates = np.arange(len(self.ids), dtype=np.int32)
+        self.n = int(len(self.ids))
+        runtime_indices = self.indices
+        if self.topology_transform == "shuffle_presynaptic_v1":
+            # Degree/weight-preserving null: globally permute presynaptic
+            # neuron identities while leaving postsynaptic row structure,
+            # row degree, and edge weights unchanged.
+            permutation = np.random.default_rng(
+                self.topology_seed
+            ).permutation(self.n).astype(np.int32, copy=False)
+            runtime_indices = permutation[
+                np.asarray(self.indices, dtype=np.int32)
+            ]
         self.W = sparse.csr_matrix(
-            (self.data, self.indices, self.indptr),
-            shape=(len(self.ids), len(self.ids)),
+            (self.data, runtime_indices, self.indptr),
+            shape=(self.n, self.n),
             copy=False,
         )
-        self.n = int(len(self.ids))
         self.dt = float(dt)
         self.tau = float(tau)
         self.decay = np.float32(math.exp(-self.dt / self.tau))
@@ -387,12 +406,20 @@ class MaleCNSFullBrain(MiniBrain):
         return NeuralObservation(
             brain_id=self.brain_id,
             brain_kind=BrainKind.FLY_CORE,
-            engine=self.engine_name,
+            engine=(
+                self.engine_name
+                if self.topology_transform == "none"
+                else f"{self.engine_name}-{self.topology_transform}"
+            ),
             step=self.step_no,
             state_vector=sampled,
             metrics=metrics,
             metadata={
-                "real_connectome_topology": True,
+                "real_connectome_topology": self.topology_transform == "none",
+                "source_measured_topology": True,
+                "topology_transform": self.topology_transform,
+                "topology_seed": self.topology_seed,
+                "control_topology": self.topology_transform != "none",
                 "full_connectome": True,
                 "source": "MaleCNS v1.0 public flat connectome",
                 "compiled_manifest": str(self.compiled_root / "manifest.json"),
