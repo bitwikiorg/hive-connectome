@@ -2,73 +2,95 @@
 
 ## Runtime unit
 
-HIVE is not one neural network and not one LLM. The primary unit is a saved worker experiment:
+A HIVE Core is one **integrated recurrent computation**, not a neural model followed by optional utilities.
 
 ```text
-                    ┌──────────── Worker A ────────────┐
-data environment →  │ Larva_A → Bee_A → JEV? → LLM? │ → output/state
-                    └──────────────────────────────────┘
-                                  │ optional routing
-                    ┌──────────── Worker B ────────────┐
-                    │ Larva_B → Bee_B → JEV? → LLM? │
-                    └──────────────────────────────────┘
+INPUT / DATA
+    ↓
+configured neural chain
+    ↓
+whole-state neural representation
+    ↓
+JEV                         independently ablatable
+    ↓
+LLM                         independently ablatable
+    ↓
+bounded recurrent feedback
+    ↺ same input / next integration cycle
+    ↓
+recorded result + trace
 ```
 
-Each worker owns its experiment objective, data environment, prompts/questions, neural configuration, provider toggles, runtime, and outputs. This keeps experiments reproducible and makes ablations meaningful.
+A Core owns its experiment objective, data environment, neural configuration, explicit bridges, JEV questions, LLM configuration, recurrent integration-cycle count, recording policy, and outputs. A Hive chains multiple Cores only when the experiment explicitly requires a multi-Core topology.
 
-## Neural + JEV cohesion
+## Neural state supplied to JEV and the LLM
 
-The bridge is explicit structured state:
+The inference layers must receive a representation derived from the complete executed neural state.
+
+For small substrates, HIVE sends the neural state losslessly. For large substrates such as full MaleCNS, HIVE uses `whole_state_multiresolution_v1`: global distributions, deterministic chunks covering every neuron, high-salience activations, recent firing activity, population summaries, temporal deltas, metadata, and a SHA-256 integrity hash of the complete state.
+
+The representation is intentionally bounded for provider context limits, but it may not be replaced by arbitrary first-N excerpts.
 
 ```json
 {
-  "worker": {"experiment": {}, "data_environment": {}},
   "event": {},
-  "larva": {"metrics": {}, "state_excerpt": []},
-  "bee": {"metrics": {}, "state_excerpt": []}
+  "neural_state": {
+    "worm": {"whole_state": {}},
+    "fly": {"whole_state": {}}
+  },
+  "bridges": []
 }
 ```
 
-JEV evaluates that shared state with bounded questions. When enabled, a JEV-derived modulation value may feed the next neural cycle. This is an engineered closed loop, not a claim that JEV reproduces biological neuromodulation.
+## Recurrent integration
 
-For `noul`, the returned value is the probability of “yes”; it is not a separate confidence field. `choice` and `score` may include confidence/distributions according to the provider schema.
+When JEV and/or an LLM are enabled, the default Core runs multiple integration cycles over the same input:
 
-## LLM behavior
+```text
+neural pass
+→ JEV decision
+→ LLM reasoning
+→ optional JEV verification
+→ bounded feedback
+→ neural refinement on the same input
+```
 
-LLM use is independently configurable per worker:
+Every enabled member executes on every integration cycle. JEV is not merely an LLM gate. LLM execution is not silently skipped because JEV reports low uncertainty.
 
-- `always`
-- `jev_gate`
-- `manual`
+The ablation switches remain independent:
 
-Workers can use LM Studio or Venice Chat when configured. A worker may also run with no LLM at all.
+```text
+Neural only
+Neural + JEV
+Neural + LLM
+Neural + JEV + LLM
+```
+
+Those conditions change only the explicitly ablated member. Input, data, neural substrate, prompts/questions, and evaluation case remain fixed.
+
+## Provider truth
+
+Mock providers are permitted only for software unit tests. Integration/scientific runs require actual configured provider calls and provider receipts. An enabled provider that is unavailable is an execution error; HIVE does not silently substitute or skip it.
+
+LLM responses use a structured recurrent contract with an analysis, unresolved items, and a bounded `neural_feedback` value in [-1, 1]. JEV retains its typed `noul`, `choice`, and `score` interface.
 
 ## Authority boundary
 
 ```text
-observe → recurrent state → bounded decision → optional LLM → proposal/output
-                                                           ↓
-                                                  deterministic policy
-                                                           ↓
-                                                explicit external executor
+observe → integrated recurrent Core → proposal/output
+                                  ↓
+                         deterministic policy
+                                  ↓
+                        explicit external executor
 ```
 
 Inference output is not authority. Irreversible or high-impact actions require a separate deterministic permission/execution boundary.
 
-## Deployment profiles
+## Primary substrates
 
-Profiles are examples rather than identities of the project. The same worker/event contracts can be applied to local workspace data, public APIs, on-chain state, simulation fixtures, or other explicitly configured sources.
+- Larva: corrected Cook C. elegans full measured topology.
+- Bee: full MaleCNS v1.0 graph via `malecns_full_v1`.
+- Development/control Bee: MaleCNS v1.0 1,045-neuron locomotor subgraph.
+- Synthetic/random/shuffled engines: controls only.
 
-## Scaling
-
-The external contracts stay stable while internals improve:
-
-- default Larva: corrected Cook C. elegans measured topology + compact graded dynamics
-- primary Bee: full MaleCNS v1.0 graph (required; execution engine not yet implemented)
-- development/control Bee: MaleCNS v1.0 1,045-neuron locomotor subgraph + LIF-style dynamics
-- synthetic/random/shuffled engines remain experimental controls
-- one state instance → multiple states sharing immutable topology
-- SQLite → larger event/state store
-- in-process routing → distributed event bus if needed
-- local inference → another model host/cluster
-- one process → worker replicas
+Primary readiness remains empirical: the exact pinned full datasets must execute successfully and produce matching execution receipts.
