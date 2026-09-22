@@ -22,8 +22,8 @@ def test_inline_handlers_have_javascript_functions():
 
 def test_gui_is_backend_driven_experiment_builder():
     for control in [
-        "coreSelect","pipelineBuilder","planWarnings","jevEnabled","jevModel","jevFeedback",
-        "llmEnabled","llmProvider","llmModel","llmActivation","recordingLevel","persistState",
+        "coreSelect","pipelineBuilder","planWarnings","architectureTags","integrationCycles",
+        "jevEnabled","jevModel","jevFeedback","llmEnabled","llmProvider","llmModel","recordingLevel","persistState",
         "runInput","resetBeforeRun","runButton","runSummary","executionTrace","rawRun",
         "matrixHuman","runHistory","providers","connectomes","hiveChain","hiveResult",
         "veniceBaseUrl","veniceDefaultJevModel","veniceApiKey","lmstudioBaseUrl",
