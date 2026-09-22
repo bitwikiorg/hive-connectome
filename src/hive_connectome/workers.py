@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from hive_connectome.schemas import BrainKind, BrainStageSpec, BridgeSpec, JevQuestion
 
@@ -91,22 +91,26 @@ class RuntimeSpec(BaseModel):
     cron: str | None = None
     persist_brain_state: bool = True
     max_events_per_tick: int = Field(default=25, ge=1, le=1000)
-    harness_passes: int | None = Field(
-        default=None,
-        ge=1,
-        le=8,
-        description="Number of complete architecture passes over the same input.",
-    )
-    integration_cycles: int = Field(
+    harness_passes: int = Field(
         default=2,
         ge=1,
         le=8,
-        description="Legacy alias used when harness_passes is absent.",
+        validation_alias=AliasChoices("harness_passes", "integration_cycles"),
+        description="Number of complete architecture passes over the same input.",
     )
 
     @property
+    def integration_cycles(self) -> int:
+        """Backward-compatible attribute alias for pre-composition configs."""
+        return self.harness_passes
+
+    @integration_cycles.setter
+    def integration_cycles(self, value: int) -> None:
+        self.harness_passes = int(value)
+
+    @property
     def resolved_harness_passes(self) -> int:
-        return int(self.harness_passes or self.integration_cycles)
+        return int(self.harness_passes)
 
 
 class OutputSpec(BaseModel):
