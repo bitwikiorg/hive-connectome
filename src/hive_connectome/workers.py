@@ -91,12 +91,22 @@ class RuntimeSpec(BaseModel):
     cron: str | None = None
     persist_brain_state: bool = True
     max_events_per_tick: int = Field(default=25, ge=1, le=1000)
+    harness_passes: int | None = Field(
+        default=None,
+        ge=1,
+        le=8,
+        description="Number of complete architecture passes over the same input.",
+    )
     integration_cycles: int = Field(
         default=2,
         ge=1,
         le=8,
-        description="Same-input recurrent neural/JEV/LLM cycles when any inference provider is enabled.",
+        description="Legacy alias used when harness_passes is absent.",
     )
+
+    @property
+    def resolved_harness_passes(self) -> int:
+        return int(self.harness_passes or self.integration_cycles)
 
 
 class OutputSpec(BaseModel):
@@ -196,13 +206,25 @@ class WorkerSpec(BaseModel):
                         id=f"{source}-to-{stage.id}",
                         source=source,
                         target=stage.id,
-                        engine="state_projection_v1",
-                        config={"source_excerpt": 32, "target_count": 24, "gain": 1.0},
+                        engine="whole_state_projection_v1",
+                        config={"target_count": 24, "gain": 1.0},
                     ))
 
         for bridge in self.bridges:
             if bridge.source not in known or bridge.target not in known:
                 raise ValueError(f"bridge {bridge.id} references unknown stage")
+            # v0.7 generated this exact first-32 bridge implicitly. Upgrade it
+            # to the whole-state projection unless a researcher explicitly
+            # marks it as a legacy excerpt control.
+            if (
+                bridge.engine == "state_projection_v1"
+                and int(bridge.config.get("source_excerpt", 32)) == 32
+                and int(bridge.config.get("target_count", 24)) == 24
+                and float(bridge.config.get("gain", 1.0)) == 1.0
+                and not bool(bridge.config.get("preserve_legacy_excerpt"))
+            ):
+                bridge.engine = "whole_state_projection_v1"
+                bridge.config.pop("source_excerpt", None)
 
         reserved = {"readout", "jev", "llm", "jev_verify", "feedback"}
         stage_ids = [stage.id for stage in self.brain_chain]
