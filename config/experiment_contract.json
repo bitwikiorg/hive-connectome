@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "experiment_id": "full-connectome-larva-bee-ablation",
   "title": "Full C. elegans → full MaleCNS HIVE experiment",
   "status": "blocked",
@@ -46,6 +46,11 @@
       ],
       "architecture_is_experimental_variable": true,
       "semantics": "tag order is execution order; repeated tags repeat calls; removed tags remove components"
+    },
+    "bridge": {
+      "engine": "whole_state_projection_v1",
+      "role": "canonical_primary_handoff",
+      "required": true
     }
   },
   "invariants": [
@@ -58,11 +63,12 @@
     "No silent fallback may satisfy a requested experimental stage.",
     "Inference output is not external action authority.",
     "The Core architecture is an ordered executable tag sequence; runtime, plan API, GUI, traces, and evaluation must resolve the same order.",
-    "Matched ablations must preserve the same integration-cycle count unless cycle count itself is the declared experimental variable.",
+    "Matched ablations must preserve the same harness-pass count unless cycle count itself is the declared experimental variable.",
     "JEV/LLM calls require a fresh readout after the most recent neural or bridge change.",
     "JEV feedback and LLM feedback are independent sources with independent enable flags and target sets; neither may inherit the other's feedback configuration.",
-    "An LLM call may include a JEV decision only if a real JEV decision call executed earlier in the same integration cycle.",
-    "A jev_verify tag verifies the latest LLM output; a prior regular jev tag is optional, and any prior JEV decision is included only when it actually exists."
+    "An LLM call may include a JEV decision only if a real JEV decision call executed earlier in the same harness pass.",
+    "A jev_verify tag verifies the latest LLM output; a prior regular jev tag is optional, and any prior JEV decision is included only when it actually exists.",
+    "The canonical primary readiness receipt requires the whole_state_projection_v1 Cook → MaleCNS handoff; bridge and input null controls may not satisfy primary readiness."
   ],
   "controls": [
     {
@@ -95,7 +101,7 @@
     "Implement a full MaleCNS engine that imports and propagates the complete pinned MaleCNS v1.0 graph.",
     "Verify full dataset hashes before import.",
     "Report observed node/connection counts from the loaded graph and fail on mismatch.",
-    "Run the same fixed evaluation cases across JEV/LLM toggle states without changing neural substrate.",
+    "Run the same fixed evaluation cases across declared architecture variants without changing neural substrate.",
     "Keep the locomotor subgraph labeled as a control in setup, API, GUI, docs, and receipts.",
     "Pass software, replay, null/shuffle, and transition tests before declaring the primary experiment ready."
   ]
