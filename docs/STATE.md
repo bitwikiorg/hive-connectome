@@ -99,7 +99,11 @@ The primary experiment becomes READY only after the exact full datasets execute 
 [x] expected node/connection/synapse counts encoded in the contract
 [x] execution receipts required by readiness
 [x] Cook → full MaleCNS handoff implemented
-[x] JEV/LLM four-way ablation harness exists
+[x] architecture-variant evaluator + common TaskResult/scorer
+[x] reset policy, repetitions, condition order, uncertainty, and compute signatures
+[x] whole-state/random/zero bridge controls + zero root input + synthetic/shuffled topology controls
+[x] per-pass state/context artifacts + end-to-end primary receipt + source/compiled hash binding
+[x] JEV/LLM four-way ablation retained as a subset of the general variant harness
 [ ] target machine downloads + verifies the pinned full MaleCNS files
 [ ] target machine executes the exact full graph successfully
 [ ] resulting execution receipt matches 166700 / 25582938 / 124177617
@@ -119,7 +123,7 @@ The Windows first-run script now installs the full required pack and performs a 
 8. External inference claims require actual provider-call receipts, not a model-list response.
 9. JEV/LLM context must be derived from the complete executed neural state; arbitrary first-N state excerpts are forbidden as the primary neural representation.
 10. If JEV or an LLM is enabled, it executes on every harness pass or the run fails explicitly.
-11. JEV/LLM feedback must affect a same-input neural refinement cycle when harness_passes > 1.
+11. When feedback is enabled and another neural execution follows, JEV/LLM feedback must affect that same-input neural refinement pass.
 12. Core architecture order is defined by executable component tags; the runtime, plan API, GUI, traces, and tests must resolve the same ordered sequence.
 13. A JEV/LLM call may not consume stale neural context: a readout must follow the most recent neural/bridge change before a provider call.
 14. JEV and LLM feedback are independent sources with independent enable flags and target sets.
