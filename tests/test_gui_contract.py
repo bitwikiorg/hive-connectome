@@ -38,7 +38,7 @@ def test_gui_is_backend_driven_experiment_builder():
     ]:
         assert route in JS
     assert "RESOLVED EXECUTION PATH" in HTML
-    assert "Neural state projection" in JS
+    assert "Whole-state projection" in JS
     assert "Run this Core" in HTML
 
 
