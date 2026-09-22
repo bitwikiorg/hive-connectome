@@ -80,6 +80,7 @@ class PipelineRequest(BaseModel):
     architecture: list[str] | None = None
     harness_passes: int | None = Field(default=None, ge=1, le=8)
     feedback_enabled: bool | None = None
+    bridge_engines: dict[str, str] = Field(default_factory=dict)
 
 
 class TaskResult(BaseModel):
