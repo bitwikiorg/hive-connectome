@@ -737,6 +737,14 @@ class HivePipeline:
             raw_bridge = bridge.model_dump(mode="json")
             raw_bridge["engine"] = engine_name
             bridge_specs[bridge_id] = BridgeSpec.model_validate(raw_bridge)
+        unknown_input_stages = [
+            stage_id for stage_id in req.input_encoders
+            if stage_id not in stage_specs
+        ]
+        if unknown_input_stages:
+            raise RuntimeError(
+                f"input encoder override references unknown neural stage: {unknown_input_stages}"
+            )
         valid_tags = set(stage_specs) | set(bridge_specs) | {
             "readout", "jev", "llm", "jev_verify", "feedback"
         }
@@ -830,8 +838,6 @@ class HivePipeline:
                         "architecture": architecture,
                         "harness_pass": cycle_index + 1,
                         "harness_passes": integration_cycles,
-                        "integration_cycle": cycle_index + 1,
-                        "integration_cycles": integration_cycles,
                     },
                     "event": req.event.model_dump(mode="json"),
                     "neural_state": neural_state,
@@ -878,7 +884,7 @@ class HivePipeline:
                         "event": req.event.payload,
                         "experiment": worker.experiment.kind,
                         "objective": worker.experiment.objective,
-                        "integration_cycle": cycle_index + 1,
+                        "harness_pass": cycle_index + 1,
                         "architecture_tag": tag,
                     }
                     if identity_payloads:
@@ -888,9 +894,18 @@ class HivePipeline:
                             [idx, amp] for idx, amp in sorted(merged_drives.items())
                         ]
 
+                    input_encoder = req.input_encoders.get(tag, "engine_default")
+                    if explicit_bridge_seen and input_encoder != "engine_default":
+                        raise RuntimeError(
+                            f"input encoder override for {tag} conflicts with an explicit bridge stimulus"
+                        )
+                    if not explicit_bridge_seen and input_encoder == "zero_v1":
+                        payload["__hive_stimulus__"] = []
+
                     observation = engine.step(payload)
-                    observation.metadata["integration_cycle"] = cycle_index + 1
-                    observation.metadata["integration_cycles"] = integration_cycles
+                    observation.metadata["input_encoder_override"] = input_encoder
+                    observation.metadata["harness_pass"] = cycle_index + 1
+                    observation.metadata["harness_passes"] = integration_cycles
                     observation.metadata["architecture_tag"] = tag
                     observation.metadata["architecture_index"] = component_index
 
@@ -1444,6 +1459,7 @@ class HivePipeline:
             "core_id": worker.id,
             "architecture": architecture,
             "bridge_engine_overrides": dict(req.bridge_engines),
+            "input_encoder_overrides": dict(req.input_encoders),
             "component_registry": {
                 **{tag: "neural_stage" for tag in stage_specs},
                 **{tag: "bridge" for tag in bridge_specs},
