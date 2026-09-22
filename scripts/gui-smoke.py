@@ -50,8 +50,13 @@ def normalize_worker(raw: dict) -> dict:
             "enabled": True,
             "config": {"source_excerpt": 32, "target_count": 24, "gain": 1.0},
         }]
+    architecture = worker.get("architecture", [])
+    if isinstance(architecture, str):
+        architecture = [tag.strip() for tag in architecture.split(",") if tag.strip()]
+    worker["architecture"] = architecture
     worker.setdefault("outputs", {}).setdefault("recording_level", "trace")
     worker.setdefault("runtime", {}).setdefault("persist_brain_state", True)
+    worker["runtime"].setdefault("integration_cycles", 2)
     return worker
 
 
@@ -129,7 +134,23 @@ async def run(executable: str | None, screenshot: Path | None):
                   fly:{engine:'malecns-v1-locomotor-lif-v1'},
                   decisions:{provider:'venice',model:'jev-latest',answers:{route:{choice:'store'},meaningful_signal:{noul:.82},novelty:{score:1.2},llm_needed:{noul:.3}},transport:{call_id:'jev-smoke',http_status:200,latency_ms:42}},
                   llm:null,labels:['core:scout','jev:on','llm:on'],unresolved:[],modulation:.15,
-                  execution:{study_role:'control_only',primary_experiment:false,core_id:'scout',bridges:[{id:'worm-to-fly',source:'worm',target:'fly',engine:'state_projection_v1',stimulus_count:24,source_step:1}],jev:{requested:true,called:true,provider:'venice',model:'jev-latest',call_id:'jev-smoke'},llm:{requested:true,called:false,provider:null,model:null}}
+                  execution:{
+                    study_role:'control_only',primary_experiment:false,core_id:'scout',
+                    architecture:['worm','worm-to-fly','fly','readout','jev','llm','jev_verify','feedback'],
+                    bridges:[{id:'worm-to-fly',source:'worm',target:'fly',engine:'state_projection_v1',stimulus_count:24,source_step:1}],
+                    integration:{cycles:1,trace:[{cycle:1,architecture:['worm','worm-to-fly','fly','readout','jev','llm','jev_verify','feedback'],components:[
+                      {tag:'worm',type:'neural_stage',called:true,engine:'cook2019-corrected-connectome-graded-v1',step:1,metrics:{nodes:300,edges:2200,input_nodes:18,energy:.12,novelty:.02}},
+                      {tag:'worm-to-fly',type:'bridge',called:true,source:'worm',target:'fly',engine:'state_projection_v1',stimulus_count:24,source_step:1},
+                      {tag:'fly',type:'neural_stage',called:true,engine:'malecns-v1-locomotor-lif-v1',step:1,metrics:{nodes:1045,edges:17224,input_nodes:24,spikes:9,energy:.08,novelty:.01}},
+                      {tag:'readout',type:'neural_readout',called:true,stages:['worm','fly'],state_hashes:{}},
+                      {tag:'jev',type:'jev',called:true,provider:'venice',model:'jev-latest',call_id:'jev-smoke'},
+                      {tag:'llm',type:'llm',called:false,reason:'ablation_disabled'},
+                      {tag:'jev_verify',type:'jev_verification',called:false,reason:'ablation_or_verification_disabled'},
+                      {tag:'feedback',type:'feedback',called:true,applied:false,modulation:.15,targets:['worm','fly']}
+                    ]}]},
+                    jev:{enabled:true,tagged:true,called:true,calls:1,provider:'venice',model:'jev-latest'},
+                    llm:{enabled:false,tagged:true,called:false,calls:0,provider:null,model:null}
+                  }
                 };
                 else if(p==='/api/evals/run') body={summary:{jev_off_llm_off:{mean_latency_ms:1,jev_calls:0,llm_calls:0,failures:0},jev_on_llm_off:{mean_latency_ms:2,jev_calls:1,llm_calls:0,failures:0},jev_off_llm_on:{mean_latency_ms:3,jev_calls:0,llm_calls:1,failures:0},jev_on_llm_on:{mean_latency_ms:4,jev_calls:1,llm_calls:1,failures:0}}};
                 else if(p.startsWith('/api/workers/')&&opts.method==='PUT'){
