@@ -490,6 +490,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             feedback_enabled=variant.feedback_enabled,
                             bridge_engines=variant.bridge_engines,
                             input_encoders=variant.input_encoders,
+                            stage_engines=variant.stage_engines,
+                            stage_config_overrides=variant.stage_config_overrides,
                         ))
                         route = result.decisions.answers.get("route", {}).get("choice")
                         task_score = score_task_result(case, result.task_result, route)
@@ -524,6 +526,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "feedback_enabled": variant.feedback_enabled,
                             "bridge_engines": dict(variant.bridge_engines),
                             "input_encoders": dict(variant.input_encoders),
+                            "stage_engines": dict(variant.stage_engines),
+                            "stage_config_overrides": dict(variant.stage_config_overrides),
                             "route": route,
                             "route_correct": (
                                 None
@@ -560,6 +564,8 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "feedback_enabled": variant.feedback_enabled,
                             "bridge_engines": dict(variant.bridge_engines),
                             "input_encoders": dict(variant.input_encoders),
+                            "stage_engines": dict(variant.stage_engines),
+                            "stage_config_overrides": dict(variant.stage_config_overrides),
                             "route": None,
                             "route_correct": (
                                 False if case.expected_route is not None else None
