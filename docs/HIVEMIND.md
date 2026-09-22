@@ -26,7 +26,7 @@ configured event/source
 → Bee recurrent step
 → neural observations become structured decision state
 → optional JEV bounded decisions
-→ optional modulation of the next neural cycle
+→ optional bounded modulation of later neural stages in the same pass or the next harness pass
 → optional LLM reasoning according to worker policy
 → optional JEV verification
 → evidence/run state persists
