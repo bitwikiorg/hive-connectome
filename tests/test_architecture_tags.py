@@ -349,13 +349,13 @@ async def test_verifier_rejects_llm_output_from_stale_readout(tmp_path: Path):
     db.close()
 
 
-def test_legacy_llm_activation_values_migrate_to_tag_driven_always(tmp_path: Path):
+def test_legacy_llm_activation_values_are_ignored(tmp_path: Path):
     workers = _store(tmp_path)
     raw = workers.get("scout").model_dump(mode="json")
     raw["llm"]["activation"] = "jev_gate"
     migrated = WorkerSpec.model_validate(raw)
-    assert migrated.llm.activation == "always"
+    assert "activation" not in migrated.llm.model_dump()
 
     raw["llm"]["activation"] = "manual"
     migrated = WorkerSpec.model_validate(raw)
-    assert migrated.llm.activation == "always"
+    assert "activation" not in migrated.llm.model_dump()
