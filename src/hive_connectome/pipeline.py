@@ -717,6 +717,12 @@ class HivePipeline:
             if component.get("context_artifact")
         ]
 
+        # A readiness-promoting primary run must preserve the full MaleCNS
+        # numerical state and expose a readout. Trace-only/control runs remain
+        # valid experiments, but cannot become the canonical primary receipt.
+        if "readout" not in architecture or not recording_artifacts:
+            return None
+
         receipt = {
             "receipt_version": 3,
             "kind": "primary_end_to_end",
