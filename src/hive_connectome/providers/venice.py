@@ -44,6 +44,7 @@ def _receipt(*, capability: str, endpoint: str, request: Any, model: str | None,
         "request_hash": _digest(request),
         "response_hash": _digest(response) if response is not None else None,
         "response_headers": selected_headers,
+        "usage": response.get("usage") if isinstance(response, dict) else None,
         "error": error,
     }
 
