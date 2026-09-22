@@ -427,6 +427,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             eval_worker = worker_store.get(req.worker_id)
         except KeyError:
             raise HTTPException(404, "worker not found")
+
         worker_hash = hashlib.sha256(
             json.dumps(
                 eval_worker.model_dump(mode="json"),
@@ -438,22 +439,11 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
         experiment_run_id = str(uuid4())
         task_set_hash = canonical_task_set_hash(req.cases)
         variants = req.resolved_variants()
-        rows = []
-        manifest_variants = []
+        rows: list[dict] = []
+        manifest_variants: list[dict] = []
+        variant_records = []
 
-        # Deterministic condition ordering avoids accidental dependence on API
-        # list order while remaining replayable.
-        ordered_variants = list(variants)
-        if req.condition_order_seed is not None:
-            random.Random(req.condition_order_seed).shuffle(ordered_variants)
-
-        if req.reset_policy == "persistent_sequence":
-            try:
-                pipeline.reset(req.worker_id)
-            except KeyError:
-                raise HTTPException(404, "worker not found")
-
-        for variant in ordered_variants:
+        for variant in variants:
             variant_payload = variant.model_dump(mode="json")
             variant_hash = hashlib.sha256(
                 json.dumps(
@@ -463,24 +453,29 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                     default=str,
                 ).encode("utf-8")
             ).hexdigest()
+            variant_records.append((variant, variant_hash))
             manifest_variants.append({
                 **variant_payload,
                 "variant_hash": variant_hash,
             })
 
-            for repetition in range(req.repetitions):
+        if req.reset_policy == "persistent_sequence":
+            pipeline.reset(req.worker_id)
+
+        condition_orders: list[list[str]] = []
+        for repetition in range(req.repetitions):
+            ordered = list(variant_records)
+            if req.condition_order_seed is not None:
+                random.Random(req.condition_order_seed + repetition).shuffle(ordered)
+            condition_orders.append([variant.id for variant, _ in ordered])
+
+            for variant, variant_hash in ordered:
                 if req.reset_policy == "reset_per_variant":
-                    try:
-                        pipeline.reset(req.worker_id)
-                    except KeyError:
-                        raise HTTPException(404, "worker not found")
+                    pipeline.reset(req.worker_id)
 
                 for case in req.cases:
                     if req.reset_policy == "reset_per_case":
-                        try:
-                            pipeline.reset(req.worker_id)
-                        except KeyError:
-                            raise HTTPException(404, "worker not found")
+                        pipeline.reset(req.worker_id)
 
                     started = time.perf_counter()
                     try:
@@ -498,6 +493,14 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                         ))
                         route = result.decisions.answers.get("route", {}).get("choice")
                         task_score = score_task_result(case, result.task_result, route)
+                        trace = result.execution.get("integration", {}).get("trace", [])
+                        neural_stage_calls = sum(
+                            1
+                            for pass_trace in trace
+                            for component in pass_trace.get("components", [])
+                            if component.get("type") == "neural_stage"
+                            and component.get("called")
+                        )
                         rows.append({
                             "experiment_run_id": experiment_run_id,
                             "run_id": result.run_id,
@@ -510,7 +513,9 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "jev": variant.jev,
                             "llm": variant.llm,
                             "architecture": result.execution.get("architecture"),
-                            "harness_passes": result.execution.get("integration", {}).get("cycles", 1),
+                            "harness_passes": result.execution.get(
+                                "integration", {}
+                            ).get("harness_passes", 1),
                             "feedback_enabled": variant.feedback_enabled,
                             "bridge_engines": dict(variant.bridge_engines),
                             "input_encoders": dict(variant.input_encoders),
@@ -527,6 +532,7 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "jev_calls": result.execution.get("jev", {}).get("calls", 0),
                             "llm_called": result.execution.get("llm", {}).get("called", False),
                             "llm_calls": result.execution.get("llm", {}).get("calls", 0),
+                            "neural_stage_calls": neural_stage_calls,
                             "unresolved": result.task_result.unresolved,
                             "error": None,
                         })
@@ -542,7 +548,10 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "jev": variant.jev,
                             "llm": variant.llm,
                             "architecture": variant.architecture,
-                            "harness_passes": variant.harness_passes or 1,
+                            "harness_passes": (
+                                variant.harness_passes
+                                or eval_worker.runtime.resolved_harness_passes
+                            ),
                             "feedback_enabled": variant.feedback_enabled,
                             "bridge_engines": dict(variant.bridge_engines),
                             "input_encoders": dict(variant.input_encoders),
@@ -562,11 +571,27 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
                             "jev_calls": 0,
                             "llm_called": False,
                             "llm_calls": 0,
+                            "neural_stage_calls": 0,
                             "unresolved": [],
                             "error": str(exc),
                         })
 
         summary = summarize_eval(rows)
+        compute_signatures = {
+            variant_id: {
+                "jev_calls_per_case": values.get("jev_calls_per_case"),
+                "llm_calls_per_case": values.get("llm_calls_per_case"),
+                "neural_stage_calls_per_case": values.get("neural_stage_calls_per_case"),
+                "harness_passes_per_case": values.get("harness_passes_per_case"),
+            }
+            for variant_id, values in summary.items()
+        }
+        normalized_signatures = {
+            json.dumps(value, sort_keys=True, separators=(",", ":"))
+            for value in compute_signatures.values()
+        }
+        compute_matched = len(normalized_signatures) <= 1
+
         experiment_record = {
             "experiment_run_id": experiment_run_id,
             "worker_id": req.worker_id,
@@ -576,9 +601,12 @@ def create_app(settings_override: Settings | None = None, *, start_heartbeat: bo
             "reset_policy": req.reset_policy,
             "repetitions": req.repetitions,
             "condition_order_seed": req.condition_order_seed,
+            "condition_orders": condition_orders,
             "variants": manifest_variants,
             "case_ids": [case.id for case in req.cases],
             "run_ids": [row["run_id"] for row in rows if row.get("run_id")],
+            "compute_signatures": compute_signatures,
+            "compute_matched": compute_matched,
             "summary": summary,
             "rows": rows,
         }
