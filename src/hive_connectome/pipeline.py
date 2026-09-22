@@ -661,7 +661,7 @@ class HivePipeline:
         )
         fly_stage = next(
             (
-                stage for stage in worker.brain_chain
+                stage for stage in resolved_stages
                 if stage.enabled
                 and stage.id in architecture
                 and stage.engine == "malecns_full_v1"
@@ -669,6 +669,12 @@ class HivePipeline:
             None,
         )
         if cook_stage is None or fly_stage is None:
+            return None
+        cook_execution = stage_execution.get(cook_stage.id) or {}
+        fly_execution = stage_execution.get(fly_stage.id) or {}
+        if not cook_execution.get("real_connectome_topology"):
+            return None
+        if not fly_execution.get("real_connectome_topology"):
             return None
 
         canonical_bridge_engine = "whole_state_projection_v1"
@@ -717,6 +723,9 @@ class HivePipeline:
         worker_payload = worker.model_dump(mode="json")
         resolved_config = {
             "worker": worker_payload,
+            "resolved_stages": [
+                stage.model_dump(mode="json") for stage in resolved_stages
+            ],
             "architecture": architecture,
             "harness_passes": harness_passes,
             "canonical_bridge_engine": canonical_bridge_engine,
@@ -1541,14 +1550,24 @@ class HivePipeline:
             for stage in resolved_stages
             if stage.enabled and stage.id in architecture
         )
+        uses_control_topology = any(
+            bool(observations.get(stage.id))
+            and bool(observations[stage.id].metadata.get("control_topology"))
+            for stage in resolved_stages
+            if stage.enabled and stage.id in architecture
+        )
         uses_full_fly = any(
             stage.engine == "malecns_full_v1"
-            for stage in worker.brain_chain
+            and stage.id in observations
+            and bool(observations[stage.id].metadata.get("real_connectome_topology"))
+            for stage in resolved_stages
             if stage.enabled and stage.id in architecture
         )
         uses_full_worm = any(
             stage.engine == "cook2019_connectome"
-            for stage in worker.brain_chain
+            and stage.id in observations
+            and bool(observations[stage.id].metadata.get("real_connectome_topology"))
+            for stage in resolved_stages
             if stage.enabled and stage.id in architecture
         )
 
@@ -1556,7 +1575,11 @@ class HivePipeline:
             "study_role": (
                 "primary_candidate"
                 if uses_full_fly and uses_full_worm
-                else ("control_only" if uses_control_fly else "experimental")
+                else (
+                    "control_only"
+                    if uses_control_fly or uses_control_topology
+                    else "experimental"
+                )
             ),
             "primary_experiment": bool(uses_full_fly and uses_full_worm),
             "core_id": worker.id,
@@ -1589,7 +1612,6 @@ class HivePipeline:
             },
             "integration": {
                 "architecture": architecture,
-                "cycles": integration_cycles,
                 "harness_passes": integration_cycles,
                 "trace": cycle_trace,
             },
