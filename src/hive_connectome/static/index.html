@@ -50,7 +50,8 @@
         <div class="config-title"><span>Executable architecture</span></div>
         <p class="meta">Comma-separated component tags. Their order is the order HIVE executes them.</p>
         <label>Component tags<input id="architectureTags" placeholder="worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback" onchange="updateCoreControls()"></label>
-        <label>Same-input integration cycles<input id="integrationCycles" type="number" min="1" max="8" step="1" onchange="updateCoreControls()"></label>
+        <label>Same-input harness passes<input id="integrationCycles" type="number" min="1" max="8" step="1" onchange="updateCoreControls()"></label>
+        <p class="meta">Neural engine substeps are separate. Feedback is separate. This controls how many times the whole tagged architecture runs over the same input.</p>
       </div>
 
       <div class="config-card">
