@@ -48,6 +48,7 @@ def test_experiment_plan_exposes_backend_resolved_execution_path(client):
     assert body["bridges"][0]["label"] == "Neural state projection"
     assert body["sequence"][0]["type"] == "input"
     assert body["sequence"][-1]["type"] == "output"
+    assert [item["tag"] for item in body["sequence"] if item.get("tag")] == body["architecture"]
     assert client.get("/api/experiments/missing/plan").status_code == 404
 
 
