@@ -45,7 +45,7 @@ def test_experiment_plan_exposes_backend_resolved_execution_path(client):
     assert [stage["id"] for stage in body["stages"]] == ["worm", "fly"]
     assert body["stages"][0]["engine_label"] == "Cook full C. elegans"
     assert body["stages"][1]["engine_label"] == "Full MaleCNS v1.0"
-    assert body["bridges"][0]["label"] == "Neural state projection"
+    assert body["bridges"][0]["label"] == "Whole-state neural projection"
     assert body["sequence"][0]["type"] == "input"
     assert body["sequence"][-1]["type"] == "output"
     assert [item["tag"] for item in body["sequence"] if item.get("tag")] == body["architecture"]
@@ -250,7 +250,7 @@ def test_tasks_valid_invalid_and_missing_dependency(client, monkeypatch):
 def test_core_graph_can_remove_stages_and_bridge_is_explicit(client):
     scout=client.get("/api/workers/scout").json()
     assert [stage["id"] for stage in scout["brain_chain"]] == ["worm","fly"]
-    assert scout["bridges"][0]["engine"] == "state_projection_v1"
+    assert scout["bridges"][0]["engine"] == "whole_state_projection_v1"
 
     run=client.post("/api/pipeline/run",json={
         "worker_id":"scout","jev_enabled":False,"llm_enabled":False,"mode":"offline",
@@ -259,7 +259,8 @@ def test_core_graph_can_remove_stages_and_bridge_is_explicit(client):
     assert set(run["stages"]) == {"worm","fly"}
     assert run["execution"]["bridges"][0]["source"] == "worm"
     assert run["execution"]["bridges"][0]["target"] == "fly"
-    assert run["execution"]["bridges"][0]["engine"] == "state_projection_v1"
+    assert run["execution"]["bridges"][0]["engine"] == "whole_state_projection_v1"
+    assert run["execution"]["bridges"][0]["source_values_used"] == len(run["worm"]["state_vector"])
     assert run["execution"]["bee"]["metadata"]["input_encoding"] == "explicit bridge stimulus"
 
     scout["brain_chain"][0]["enabled"]=False
