@@ -121,12 +121,18 @@ def test_primary_readiness_requires_one_end_to_end_primary_receipt(tmp_path):
         "run_id":"primary-run",
         "core_id":"primary-full",
         "worker_hash":"worker-hash",
+        "resolved_config_hash":"resolved-hash",
         "architecture":["worm","worm-to-fly","fly","readout"],
+        "input_encoders":{},
         "harness_passes":1,
         "stages":{
             "worm":{
                 "requested_engine":"cook2019_connectome",
-                "metadata":{"real_connectome_topology":True,"node_count":300},
+                "metadata":{
+                    "real_connectome_topology":True,
+                    "node_count":300,
+                    "source_sha256":"cook-hash",
+                },
             },
             "fly":{
                 "requested_engine":"malecns_full_v1",
@@ -136,6 +142,13 @@ def test_primary_readiness_requires_one_end_to_end_primary_receipt(tmp_path):
                     "node_count":166700,
                     "edge_count":25582938,
                     "synaptic_contacts":124177617,
+                    "compiled_manifest_sha256":"manifest-hash",
+                    "compiled_source_hashes":{
+                        "annotations.feather":"a",
+                        "neurotransmitters.feather":"b",
+                        "edges.feather":"c",
+                    },
+                    "compiled_array_hashes":{"ids.npy":"ids-hash"},
                 },
             },
         },
