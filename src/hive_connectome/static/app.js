@@ -110,13 +110,14 @@ async function selectCore(initial=false){
 function syncControlsFromCore(){
   $('coreName').textContent=currentCore.name;
   $('coreObjective').textContent=currentCore.experiment?.objective||currentCore.description||'No objective recorded.';
+  $('architectureTags').value=(currentCore.architecture||[]).join(',');
+  $('integrationCycles').value=currentCore.runtime?.integration_cycles||2;
   $('jevEnabled').checked=Boolean(currentCore.jev?.enabled);
   $('jevModel').value=currentCore.jev?.model||'jev-latest';
   $('jevFeedback').checked=Boolean(currentCore.jev?.feedback_to_brain);
   $('llmEnabled').checked=Boolean(currentCore.llm?.enabled);
   $('llmProvider').value=currentCore.llm?.provider||'lmstudio';
   $('llmModel').value=currentCore.llm?.model||'';
-  $('llmActivation').value=currentCore.llm?.activation||'jev_gate';
   $('recordingLevel').value=currentCore.outputs?.recording_level||'trace';
   $('persistState').checked=currentCore.runtime?.persist_brain_state!==false;
   $('experimentObjective').value=currentCore.experiment?.objective||'';
@@ -128,13 +129,16 @@ function syncControlsFromCore(){
 }
 
 function updateLayerExplanations(){
+  const tags=$('architectureTags').value.split(',').map(value=>value.trim()).filter(Boolean);
+  const jevTagged=tags.includes('jev');
+  const llmTagged=tags.includes('llm');
   $('jevExplanation').textContent=$('jevEnabled').checked
-    ?'After the neural stages, HIVE sends the recorded state summary to Venice JEV for bounded typed decisions. This is an external API call and receives a receipt.'
-    :'Disabled. HIVE will use its fixed local readout instead; no JEV network call will occur.';
+    ?(jevTagged?'Enabled. Venice JEV is called exactly where the jev tag appears.':'Enabled in configuration, but no jev tag is present in this architecture.')
+    :'Disabled as an ablation. Any jev tags are recorded as skipped and no JEV network call occurs.';
   const provider=$('llmProvider').value;
   $('llmExplanation').textContent=$('llmEnabled').checked
-    ?'Enabled. HIVE may call '+(provider==='venice'?'Venice':'LM Studio')+' according to the activation rule below. The model is not part of the biological connectome.'
-    :'Disabled. No language-model inference will occur.';
+    ?(llmTagged?'Enabled. '+(provider==='venice'?'Venice':'LM Studio')+' is called exactly where the llm tag appears.':'Enabled in configuration, but no llm tag is present in this architecture.')
+    :'Disabled as an ablation. Any llm tags are recorded as skipped and no language-model call occurs.';
 }
 
 function localStagePlan(stage){
