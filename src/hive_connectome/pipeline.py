@@ -476,6 +476,7 @@ class HivePipeline:
             verification = None
             decisions = brain_readout({})
             latest_jev_feedback: float | None = None
+            latest_jev_decision: DecisionBundle | None = None
             latest_llm_feedback: float | None = None
             cycle_provider_ids: list[str] = []
 
@@ -686,6 +687,7 @@ class HivePipeline:
                             model=worker.jev.model,
                         )
                         jev_call_count += 1
+                        latest_jev_decision = decisions
                         self._store_transport(
                             run_id,
                             f"jev:cycle-{cycle_index + 1}:component-{component_index}",
@@ -732,10 +734,9 @@ class HivePipeline:
                         raise RuntimeError(
                             "LLM architecture tag requires a readout tag after the most recent neural/bridge change"
                         )
-                    llm_context = {
-                        **decision_state,
-                        "jev_decision": decisions.model_dump(mode="json"),
-                    }
+                    llm_context = dict(decision_state)
+                    if latest_jev_decision is not None:
+                        llm_context["jev_decision"] = latest_jev_decision.model_dump(mode="json")
                     if worker.llm.provider == "lmstudio":
                         model = worker.llm.model or self.default_llm_model
                         if self.lmstudio is None or not model:
@@ -820,12 +821,14 @@ class HivePipeline:
                             "JEV verification is enabled, but Venice/JEV is not configured"
                         )
                     try:
+                        verification_state = {
+                            "evidence": decision_state,
+                            "llm_output": llm.text,
+                        }
+                        if latest_jev_decision is not None:
+                            verification_state["jev_decision"] = latest_jev_decision.model_dump(mode="json")
                         verification = await self.venice.decide(
-                            {
-                                "evidence": decision_state,
-                                "jev_decision": decisions.model_dump(mode="json"),
-                                "llm_output": llm.text,
-                            },
+                            verification_state,
                             {
                                 "supported": JevQuestion(
                                     type=DecisionType.NOUL,
@@ -864,42 +867,61 @@ class HivePipeline:
                     continue
 
                 if tag == "feedback":
-                    feedback_components: list[float] = []
+                    feedback_sources: dict[str, dict[str, Any]] = {}
                     if latest_jev_feedback is not None and worker.jev.feedback_to_brain:
-                        feedback_components.append(latest_jev_feedback)
-                    if latest_llm_feedback is not None:
-                        feedback_components.append(latest_llm_feedback)
+                        feedback_sources["jev"] = {
+                            "value": latest_jev_feedback,
+                            "targets": list(worker.jev.feedback_targets),
+                        }
+                    if latest_llm_feedback is not None and worker.llm.feedback_to_brain:
+                        feedback_sources["llm"] = {
+                            "value": latest_llm_feedback,
+                            "targets": list(worker.llm.feedback_targets),
+                        }
+
+                    source_values = [
+                        float(item["value"]) for item in feedback_sources.values()
+                    ]
                     modulation = (
-                        max(
-                            -1.0,
-                            min(
-                                1.0,
-                                sum(feedback_components) / len(feedback_components),
-                            ),
-                        )
-                        if feedback_components
+                        max(-1.0, min(1.0, sum(source_values) / len(source_values)))
+                        if source_values
                         else 0.0
                     )
+
                     future_neural = any(
                         future_tag in stage_specs
                         for future_tag in architecture[component_index + 1 :]
                     )
                     apply_now = bool(
-                        feedback_components
+                        feedback_sources
                         and (future_neural or cycle_index < integration_cycles - 1)
                     )
-                    targets = set(worker.jev.feedback_targets)
-                    if apply_now:
-                        for stage_id, engine in engines.items():
+
+                    target_modulations: dict[str, float] = {}
+                    for stage_id in engines:
+                        values: list[float] = []
+                        for source in feedback_sources.values():
+                            targets = set(source["targets"])
                             if not targets or stage_id in targets:
-                                engine.feedback(modulation)
+                                values.append(float(source["value"]))
+                        if values:
+                            target_modulations[stage_id] = max(
+                                -1.0,
+                                min(1.0, sum(values) / len(values)),
+                            )
+
+                    if apply_now:
+                        for stage_id, value in target_modulations.items():
+                            engines[stage_id].feedback(value)
+
                     components.append({
                         "tag": tag,
                         "type": "feedback",
                         "called": True,
                         "applied": apply_now,
                         "modulation": modulation,
-                        "targets": sorted(targets) if targets else list(engines),
+                        "sources": feedback_sources,
+                        "target_modulations": target_modulations,
                     })
                     continue
 
