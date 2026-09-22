@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from hive_connectome.schemas import BrainKind, BrainStageSpec, BridgeSpec, JevQuestion
 
@@ -128,11 +128,24 @@ class WorkerSpec(BaseModel):
     bee: BrainSpec | None = None
     brain_chain: list[BrainStageSpec] = Field(default_factory=list)
     bridges: list[BridgeSpec] = Field(default_factory=list)
+    architecture: list[str] = Field(
+        default_factory=list,
+        description="Ordered executable component tags. Accepts a comma-separated string on input.",
+    )
 
     jev: JevConfig
     llm: LLMConfig
     runtime: RuntimeSpec = Field(default_factory=RuntimeSpec)
     outputs: OutputSpec = Field(default_factory=OutputSpec)
+
+    @field_validator("architecture", mode="before")
+    @classmethod
+    def parse_architecture(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [tag.strip() for tag in value.split(",") if tag.strip()]
+        return value
 
     @model_validator(mode="after")
     def migrate_legacy_pair(self):
@@ -185,6 +198,34 @@ class WorkerSpec(BaseModel):
         for bridge in self.bridges:
             if bridge.source not in known or bridge.target not in known:
                 raise ValueError(f"bridge {bridge.id} references unknown stage")
+
+        reserved = {"readout", "jev", "llm", "jev_verify", "feedback"}
+        stage_ids = [stage.id for stage in self.brain_chain]
+        bridge_ids = [bridge.id for bridge in self.bridges]
+        collisions = reserved.intersection(stage_ids + bridge_ids)
+        if collisions:
+            raise ValueError(f"component IDs collide with reserved architecture tags: {sorted(collisions)}")
+        duplicate_ids = {item for item in stage_ids + bridge_ids if (stage_ids + bridge_ids).count(item) > 1}
+        if duplicate_ids:
+            raise ValueError(f"component IDs must be unique across stages and bridges: {sorted(duplicate_ids)}")
+
+        if not self.architecture:
+            sequence: list[str] = []
+            emitted_bridges: set[str] = set()
+            for stage in self.brain_chain:
+                for bridge in self.bridges:
+                    if bridge.enabled and bridge.target == stage.id and bridge.id not in emitted_bridges:
+                        sequence.append(bridge.id)
+                        emitted_bridges.add(bridge.id)
+                if stage.enabled:
+                    sequence.append(stage.id)
+            sequence.extend(["readout", "jev", "llm", "jev_verify", "feedback"])
+            self.architecture = sequence
+
+        valid_tags = set(stage_ids) | set(bridge_ids) | reserved
+        unknown = [tag for tag in self.architecture if tag not in valid_tags]
+        if unknown:
+            raise ValueError(f"architecture contains unknown component tags: {unknown}")
         return self
 
 
