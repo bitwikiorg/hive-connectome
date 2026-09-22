@@ -446,39 +446,135 @@ class HivePipeline:
         tmp.write_text(json.dumps(receipt, indent=2, default=str), encoding="utf-8")
         tmp.replace(target)
 
-    def _record_full_state(self, run_id: str, stage: BrainStageSpec, engine: MiniBrain, observation: NeuralObservation) -> None:
+    def _record_full_state(
+        self,
+        run_id: str,
+        stage: BrainStageSpec,
+        engine: MiniBrain,
+        observation: NeuralObservation,
+        *,
+        cycle_index: int,
+        component_index: int,
+    ) -> None:
         exporter = getattr(engine, "export_state", None)
         if not callable(exporter):
             return
         import numpy as np
-        root = self.data_dir / "recordings" / run_id
+
+        root = self.data_dir / "recordings" / run_id / f"pass-{cycle_index + 1:02d}"
         root.mkdir(parents=True, exist_ok=True)
-        target = root / f"{stage.id}.npz"
+        target = root / (
+            f"component-{component_index:02d}-{stage.id}-step-{observation.step}.npz"
+        )
         arrays = exporter()
         np.savez_compressed(target, **arrays)
-        observation.metadata["recording_artifact"] = str(target.relative_to(self.data_dir))
+        artifact = str(target.relative_to(self.data_dir))
+        history = observation.metadata.setdefault("recording_artifacts", [])
+        history.append(artifact)
+        observation.metadata["recording_artifact"] = artifact
         observation.metadata["recording_bytes"] = target.stat().st_size
 
+    def _record_context(
+        self,
+        run_id: str,
+        *,
+        cycle_index: int,
+        component_index: int,
+        tag: str,
+        payload: Any,
+    ) -> tuple[str, str]:
+        raw = _canonical_bytes(payload)
+        digest = hashlib.sha256(raw).hexdigest()
+        root = self.data_dir / "contexts" / run_id / f"pass-{cycle_index + 1:02d}"
+        root.mkdir(parents=True, exist_ok=True)
+        safe_tag = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in tag)
+        target = root / f"component-{component_index:02d}-{safe_tag}-{digest[:16]}.json"
+        if not target.exists():
+            target.write_bytes(raw)
+        return digest, str(target.relative_to(self.data_dir))
+
     @staticmethod
-    def _llm_feedback_signal(result: LLMResult | None) -> float:
+    def _parse_llm_payload(result: LLMResult | None) -> tuple[dict[str, Any] | None, str | None]:
         if result is None or not result.text:
-            return 0.0
+            return None, "missing LLM output"
         text = result.text.strip()
-        if text.startswith("```"):
+        fence = chr(96) * 3
+        if text.startswith(fence):
             lines = text.splitlines()
-            if lines and lines[0].startswith("```"):
+            if lines and lines[0].startswith(fence):
                 lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
+            if lines and lines[-1].strip() == fence:
                 lines = lines[:-1]
-            text = "\n".join(lines).strip()
+            text = "\\n".join(lines).strip()
         try:
             payload = json.loads(text)
-        except Exception:
-            return 0.0
+        except Exception as exc:
+            return None, f"invalid JSON: {exc}"
+        if not isinstance(payload, dict):
+            return None, "LLM output must be a JSON object"
+        return payload, None
+
+    @classmethod
+    def _llm_feedback_signal(cls, result: LLMResult | None) -> float | None:
+        payload, error = cls._parse_llm_payload(result)
+        if payload is None or error is not None:
+            return None
+        if "neural_feedback" not in payload:
+            return None
         try:
-            return max(-1.0, min(1.0, float(payload.get("neural_feedback", 0.0))))
+            return max(-1.0, min(1.0, float(payload["neural_feedback"])))
         except Exception:
-            return 0.0
+            return None
+
+    @classmethod
+    def _task_result(
+        cls,
+        decisions: DecisionBundle,
+        llm: LLMResult | None,
+    ) -> TaskResult:
+        if llm is not None:
+            payload, error = cls._parse_llm_payload(llm)
+            if payload is None:
+                return TaskResult(
+                    answer=llm.text,
+                    structured_output=None,
+                    unresolved=[],
+                    source="llm",
+                    valid=False,
+                    error=error,
+                )
+            unresolved = payload.get("unresolved") or []
+            if not isinstance(unresolved, list):
+                unresolved = [str(unresolved)]
+            answer = payload.get("answer")
+            if answer is None:
+                answer = payload.get("analysis")
+            confidence = payload.get("confidence")
+            try:
+                confidence = float(confidence) if confidence is not None else None
+            except Exception:
+                confidence = None
+            evidence_refs = payload.get("evidence_refs") or []
+            if not isinstance(evidence_refs, list):
+                evidence_refs = [str(evidence_refs)]
+            return TaskResult(
+                answer=answer,
+                structured_output=payload,
+                confidence=confidence,
+                evidence_refs=[str(x) for x in evidence_refs],
+                unresolved=[str(x) for x in unresolved],
+                source="llm",
+                valid=True,
+            )
+
+        route = decisions.answers.get("route", {}).get("choice")
+        return TaskResult(
+            answer=route,
+            structured_output=decisions.answers,
+            confidence=decisions.confidence,
+            source=decisions.provider,
+            valid=True,
+        )
 
     async def run(self, req: PipelineRequest) -> PipelineResult:
         run_id = str(uuid4())
