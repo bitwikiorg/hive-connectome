@@ -179,6 +179,16 @@ class WorkerSpec(BaseModel):
             self.brain_chain = chain
 
         known = {stage.id for stage in self.brain_chain}
+        for owner, targets in (
+            ("jev", self.jev.feedback_targets),
+            ("llm", self.llm.feedback_targets),
+        ):
+            unknown_targets = [target for target in targets if target not in known]
+            if unknown_targets:
+                raise ValueError(
+                    f"{owner} feedback targets reference unknown neural stages: {unknown_targets}"
+                )
+
         for stage in self.brain_chain:
             missing = [source for source in stage.input_from if source not in known]
             if missing:
