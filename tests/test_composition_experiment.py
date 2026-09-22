@@ -282,3 +282,71 @@ async def test_full_recordings_are_unique_per_harness_pass_and_primary_is_receip
     assert receipt["run_id"] == out.run_id
     assert receipt["bridges"][0]["source_values_used"] == len(out.worm.state_vector)
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_root_input_encoder_is_an_explicit_zero_control(tmp_path: Path):
+    workers = _workers(tmp_path)
+    db = HiveDB(tmp_path / "hive.db")
+    pipeline = HivePipeline(db, workers, data_dir=tmp_path)
+
+    out = await pipeline.run(PipelineRequest(
+        worker_id="scout",
+        jev_enabled=False,
+        llm_enabled=False,
+        harness_passes=1,
+        architecture=["worm"],
+        input_encoders={"worm": "zero_v1"},
+        event=EventEnvelope(payload={"signal": "should-not-stimulate"}),
+    ))
+
+    assert out.worm is not None
+    assert out.worm.metrics["input_nodes"] == 0
+    assert out.worm.metadata["input_encoder_override"] == "zero_v1"
+    assert out.execution["input_encoder_overrides"] == {"worm": "zero_v1"}
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_primary_control_bridge_cannot_write_readiness_receipt(tmp_path: Path):
+    install_runtime_fixtures(tmp_path)
+    write_malecns_full_fixture(tmp_path)
+    workers = WorkerStore(
+        tmp_path / "workers.json",
+        ROOT / "config" / "workers.default.json",
+    )
+    primary = workers.get("primary-full")
+    primary.jev.enabled = False
+    primary.llm.enabled = False
+    primary.runtime.harness_passes = 1
+    fly_stage = next(stage for stage in primary.brain_chain if stage.id == "fly")
+    fly_stage.config.update({
+        "expected_neurons": 4,
+        "expected_directed_connections": 4,
+        "expected_synapses": 26,
+        "substeps": 3,
+        "sample_size": 4,
+    })
+    workers.save(primary)
+
+    db = HiveDB(tmp_path / "hive.db")
+    pipeline = HivePipeline(
+        db,
+        workers,
+        data_dir=tmp_path,
+        experiment_contract_path=ROOT / "config" / "experiment_contract.json",
+    )
+    out = await pipeline.run(PipelineRequest(
+        worker_id="primary-full",
+        jev_enabled=False,
+        llm_enabled=False,
+        mode="offline",
+        harness_passes=1,
+        bridge_engines={"worm-to-fly": "random_projection_v1"},
+        event=EventEnvelope(payload={"signal": "control"}),
+    ))
+
+    assert out.execution["bridges"][0]["engine"] == "random_projection_v1"
+    assert "primary_execution_receipt" not in out.execution
+    assert not (tmp_path / "execution_receipts" / "primary--latest.json").exists()
+    db.close()
