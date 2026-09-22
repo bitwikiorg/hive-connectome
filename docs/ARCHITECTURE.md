@@ -39,9 +39,9 @@ Tags are not descriptive metadata. The runtime resolves and executes them in exa
 - `jev` calls the configured Venice Decisions model when JEV is enabled;
 - `llm` calls the configured Venice or LM Studio model when the LLM is enabled;
 - `jev_verify` performs the explicit post-LLM JEV verification call when enabled;
-- `feedback` converts the latest enabled JEV/LLM feedback into bounded neural modulation.
+- `feedback` applies bounded recurrent modulation from independently enabled JEV and LLM feedback sources. Each source has its own target set; neither inherits the other's configuration.
 
-Reordering tags changes the computation. Repeating a tag repeats that component call. Removing a tag removes that component from the architecture. JEV/LLM enable flags remain ablation switches: a tagged but disabled inference component is recorded as skipped rather than silently called.
+Reordering tags changes the computation. Repeating a tag repeats that component call. Removing a tag removes that component from the architecture. JEV/LLM enable flags remain ablation switches: a tagged but disabled inference component is recorded as skipped rather than silently called. JEV verification and recurrent feedback are likewise independently controllable through their tag/configuration surfaces.
 
 A provider-facing `jev` or `llm` tag requires a `readout` after the most recent neural/bridge state change. Invalid orderings fail explicitly instead of silently consuming stale state.
 
@@ -77,7 +77,7 @@ neural pass
 → neural refinement on the same input
 ```
 
-Every enabled member executes on every integration cycle. JEV is not merely an LLM gate. LLM execution is not silently skipped because JEV reports low uncertainty.
+Every enabled member executes where its tag occurs on every integration cycle. JEV is not an LLM gate. An LLM receives a JEV decision only when a real JEV call actually executed earlier in that cycle; otherwise no `jev_decision` field is fabricated. `jev_verify` can verify a prior LLM call without requiring a regular `jev` tag.
 
 The ablation switches remain independent:
 
@@ -116,3 +116,20 @@ Inference output is not authority. Irreversible or high-impact actions require a
 - Synthetic/random/shuffled engines: controls only.
 
 Primary readiness remains empirical: the exact pinned full datasets must execute successfully and produce matching execution receipts.
+
+
+## Orthogonal toggles
+
+The experimental controls are intentionally orthogonal:
+
+- neural stages: stage `enabled` plus presence/order of their architecture tags;
+- bridges: bridge `enabled` plus presence/order of their architecture tags;
+- JEV decision calls: `jev.enabled` plus the `jev` tag;
+- LLM calls: `llm.enabled` plus the `llm` tag;
+- JEV verification: `llm.verify_with_jev` plus `jev_enabled` and the `jev_verify` tag;
+- recurrent feedback: presence of the `feedback` tag;
+- JEV feedback contribution: `jev.feedback_to_brain` with `jev.feedback_targets`;
+- LLM feedback contribution: `llm.feedback_to_brain` with `llm.feedback_targets`;
+- recurrent depth: `runtime.integration_cycles`.
+
+No one toggle is allowed to silently enable, disable, target, or rename another component.
