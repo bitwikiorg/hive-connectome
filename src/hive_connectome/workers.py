@@ -71,6 +71,7 @@ class JevConfig(BaseModel):
     questions: dict[str, JevQuestion] = Field(default_factory=dict)
     feedback_to_brain: bool = True
     feedback_targets: list[str] = Field(default_factory=list)
+    feedback_adapter: Literal["meaningful_novelty_v1"] = "meaningful_novelty_v1"
 
 
 class LLMConfig(BaseModel):
@@ -82,6 +83,7 @@ class LLMConfig(BaseModel):
     verify_with_jev: bool = True
     feedback_to_brain: bool = True
     feedback_targets: list[str] = Field(default_factory=list)
+    feedback_adapter: Literal["direct_scalar_v1"] = "direct_scalar_v1"
 
 
 class RuntimeSpec(BaseModel):
