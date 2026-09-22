@@ -184,28 +184,64 @@ function renderPlan(){
   $('coreName').textContent=currentCore.name;
   $('coreObjective').textContent=currentCore.experiment?.objective||currentPlan.objective||'No objective recorded.';
 
-  let html='<div class="pipeline-node"><div class="node-type">Start</div><strong>Input</strong><div class="node-engine">Your text or JSON payload</div><div class="node-detail">No hidden task preset is added.</div></div>';
   const stages=currentCore.brain_chain||[];
-  stages.forEach((stage,index)=>{
-    html+='<div class="pipeline-arrow">→</div>'+stageNode(stage);
-    const next=stages[index+1];
-    if(next) html+=bridgeNode(stage.id,next.id);
-  });
-  html+=externalNode('Decision layer',$('jevEnabled').checked,'JEV','Venice · '+($('jevModel').value||'jev-latest'));
-  html+=externalNode('Reasoning layer',$('llmEnabled').checked,'LLM',($('llmProvider').value||'—')+' · '+($('llmModel').value||'model not selected'));
-  html+='<div class="pipeline-arrow">→</div><div class="pipeline-node"><div class="node-type">End</div><strong>Recorded result</strong><div class="node-engine">'+escapeHtml($('recordingLevel').value)+' recording</div><div class="node-detail">Run + stage + provider receipts are persisted.</div></div>';
+  const stageById=Object.fromEntries(stages.map(stage=>[stage.id,stage]));
+  const bridges=currentCore.bridges||[];
+  const bridgeById=Object.fromEntries(bridges.map(bridge=>[bridge.id,bridge]));
+  const tags=$('architectureTags').value.split(',').map(value=>value.trim()).filter(Boolean);
+
+  let html='<div class="pipeline-node"><div class="node-type">Start</div><strong>Input</strong><div class="node-engine">Your text or JSON payload</div><div class="node-detail">The tagged architecture starts here.</div></div>';
+  for(const tag of tags){
+    html+='<div class="pipeline-arrow">→</div>';
+    if(stageById[tag]){
+      html+=stageNode(stageById[tag]);
+      continue;
+    }
+    if(bridgeById[tag]){
+      const bridge=bridgeById[tag];
+      const label=currentPlan?.bridges?.find(item=>item.id===bridge.id)?.label||bridge.engine;
+      html+='<div class="pipeline-node bridge"><div class="node-type">Bridge</div><strong>'+escapeHtml(tag)+'</strong><div class="node-engine">'+escapeHtml(bridge.source+' → '+bridge.target)+'</div><div class="node-detail">'+escapeHtml(label)+'</div></div>';
+      continue;
+    }
+    if(tag==='readout'){
+      html+='<div class="pipeline-node"><div class="node-type">State adapter</div><strong>Whole-state readout</strong><div class="node-engine">Context derived from the complete executed neural state</div><div class="node-detail">Required before JEV/LLM after neural or bridge changes.</div></div>';
+      continue;
+    }
+    if(tag==='jev'){
+      html+='<div class="pipeline-node external'+($('jevEnabled').checked?'':' disabled')+'"><div class="node-type">Decision layer</div><strong>JEV</strong><div class="node-engine">Venice · '+escapeHtml($('jevModel').value||'jev-latest')+'</div><div class="node-detail">'+($('jevEnabled').checked?'CALL':'ABLATION SKIP')+'</div></div>';
+      continue;
+    }
+    if(tag==='llm'){
+      html+='<div class="pipeline-node external'+($('llmEnabled').checked?'':' disabled')+'"><div class="node-type">Reasoning layer</div><strong>LLM</strong><div class="node-engine">'+escapeHtml(($('llmProvider').value||'—')+' · '+($('llmModel').value||'model not selected'))+'</div><div class="node-detail">'+($('llmEnabled').checked?'CALL':'ABLATION SKIP')+'</div></div>';
+      continue;
+    }
+    if(tag==='jev_verify'){
+      html+='<div class="pipeline-node external"><div class="node-type">Verification</div><strong>JEV verify</strong><div class="node-engine">Venice Decisions verification</div><div class="node-detail">Runs only when JEV + LLM + verification are enabled.</div></div>';
+      continue;
+    }
+    if(tag==='feedback'){
+      html+='<div class="pipeline-node"><div class="node-type">Recurrent adapter</div><strong>Feedback</strong><div class="node-engine">Bounded modulation into configured neural targets</div><div class="node-detail">Affects later neural tags in this cycle or the next integration cycle.</div></div>';
+      continue;
+    }
+    html+='<div class="pipeline-node disabled"><div class="node-type">Unknown tag</div><strong>'+escapeHtml(tag)+'</strong><div class="node-engine">Will be rejected by backend validation</div></div>';
+  }
+  html+='<div class="pipeline-arrow">→</div><div class="pipeline-node"><div class="node-type">End</div><strong>Recorded result</strong><div class="node-engine">'+escapeHtml($('recordingLevel').value)+' recording</div><div class="node-detail">Exact component order and provider receipts are persisted.</div></div>';
   $('pipelineBuilder').innerHTML=html;
 
   const warnings=dirty?[]:[...(currentPlan.warnings||[])];
+  const known=new Set([...Object.keys(stageById),...Object.keys(bridgeById),'readout','jev','llm','jev_verify','feedback']);
+  const unknown=tags.filter(tag=>!known.has(tag));
+  if(unknown.length) warnings.push('Unknown architecture tags: '+unknown.join(', '));
   for(const stage of stages){
     const p=localStagePlan(stage);
-    if(stage.enabled && p.pack_id && !p.dataset_installed) warnings.push((p.name||stage.id)+' is enabled but its dataset is not installed.');
+    if(stage.enabled && tags.includes(stage.id) && p.pack_id && !p.dataset_installed) warnings.push((p.name||stage.id)+' is tagged and enabled but its dataset is not installed.');
+    if(stage.enabled && !tags.includes(stage.id)) warnings.push((p.name||stage.id)+' is enabled but omitted from the architecture tags.');
   }
-  if($('jevEnabled').checked && !currentPlan.jev?.configured) warnings.push('JEV is enabled but Venice credentials are not configured.');
-  if($('llmEnabled').checked && !$('llmModel').value.trim() && !providerState?.default_llm_model) warnings.push('LLM is enabled but no model is selected.');
+  if($('jevEnabled').checked && tags.includes('jev') && !currentPlan.jev?.configured) warnings.push('JEV is tagged and enabled but Venice credentials are not configured.');
+  if($('llmEnabled').checked && tags.includes('llm') && !$('llmModel').value.trim() && !providerState?.default_llm_model) warnings.push('LLM is tagged and enabled but no model is selected.');
   $('planWarnings').innerHTML=warnings.length
     ?[...new Set(warnings)].map(w=>'<div class="warning">'+escapeHtml(w)+'</div>').join('')
-    :'<div class="ok-note">No obvious configuration blockers in this Core plan.</div>';
+    :'<div class="ok-note">Tagged architecture resolves without obvious configuration blockers.</div>';
 
   $('coreJson').textContent=pretty(currentCore);
 }
@@ -228,13 +264,15 @@ function setBridgeEngine(id,engine){
 
 function updateCoreControls(){
   if(!currentCore) return;
+  currentCore.architecture=$('architectureTags').value.split(',').map(value=>value.trim()).filter(Boolean);
+  currentCore.runtime.integration_cycles=Math.max(1,Math.min(8,Number($('integrationCycles').value)||1));
   currentCore.jev.enabled=$('jevEnabled').checked;
   currentCore.jev.model=$('jevModel').value.trim()||'jev-latest';
   currentCore.jev.feedback_to_brain=$('jevFeedback').checked;
   currentCore.llm.enabled=$('llmEnabled').checked;
   currentCore.llm.provider=$('llmProvider').value;
   currentCore.llm.model=$('llmModel').value.trim()||null;
-  currentCore.llm.activation=$('llmActivation').value;
+  currentCore.llm.activation='always';
   currentCore.outputs.recording_level=$('recordingLevel').value;
   currentCore.runtime.persist_brain_state=$('persistState').checked;
   updateLayerExplanations();
