@@ -431,56 +431,111 @@ class HivePipeline:
         else:
             jev_enabled = bool(configured_jev)
             llm_enabled = bool(configured_llm)
-        llm_active = bool(llm_enabled or req.force_llm)
+
+        llm_enabled = bool(llm_enabled or req.force_llm)
+        architecture = list(worker.architecture)
+        stage_specs = {stage.id: stage for stage in worker.brain_chain}
+        bridge_specs = {bridge.id: bridge for bridge in worker.bridges}
+
+        jev_tagged = "jev" in architecture
+        llm_tagged = "llm" in architecture
+        jev_active = bool(jev_enabled and jev_tagged)
+        llm_active = bool(llm_enabled and llm_tagged)
 
         if worker.outputs.save_event:
             self.db.insert_event(req.event.model_dump(mode="json"))
 
         engines = self._engines(worker)
-        integration_cycles = worker.runtime.integration_cycles if (jev_enabled or llm_active) else 1
-        previous_states = {stage_id: snapshot_state(engine) for stage_id, engine in engines.items()}
+        provider_active = jev_active or llm_active
+        integration_cycles = worker.runtime.integration_cycles if provider_active else 1
+
+        previous_readout_states = {
+            stage_id: snapshot_state(engine)
+            for stage_id, engine in engines.items()
+        }
+        all_bridge_trace: list[dict[str, Any]] = []
         cycle_trace: list[dict[str, Any]] = []
         provider_call_ids: list[str] = []
+        jev_call_count = 0
+        llm_call_count = 0
+        verification_call_count = 0
 
         observations: dict[str, NeuralObservation] = {}
-        bridge_trace: list[dict[str, Any]] = []
         decisions = brain_readout({})
         llm: LLMResult | None = None
         verification: DecisionBundle | None = None
         modulation = 0.0
         unresolved: list[str] = []
-        decision_state: dict[str, Any] = {}
 
         for cycle_index in range(integration_cycles):
             observations = {}
-            bridge_trace = []
+            pending_bridges: dict[str, list[dict[str, Any]]] = {}
+            cycle_bridges: list[dict[str, Any]] = []
+            components: list[dict[str, Any]] = []
+            decision_state: dict[str, Any] | None = None
+            llm = None
+            verification = None
+            decisions = brain_readout({})
+            latest_jev_feedback: float | None = None
+            latest_llm_feedback: float | None = None
+            cycle_provider_ids: list[str] = []
 
-            for stage in worker.brain_chain:
-                if not stage.enabled:
-                    continue
-                engine = engines[stage.id]
-                active_sources = [source for source in stage.input_from if source in observations]
-                if not active_sources:
-                    payload: Any = {
-                        "event": req.event.payload,
-                        "experiment": worker.experiment.kind,
-                        "objective": worker.experiment.objective,
-                        "integration_cycle": cycle_index + 1,
+            def invalidate_readout() -> None:
+                nonlocal decision_state
+                decision_state = None
+
+            def build_readout() -> dict[str, Any]:
+                neural_state: dict[str, Any] = {}
+                for stage_id, observation in observations.items():
+                    engine = engines[stage_id]
+                    neural_state[stage_id] = {
+                        "kind": observation.brain_kind.value,
+                        "engine": observation.engine,
+                        "whole_state": whole_state_readout(
+                            engine,
+                            observation,
+                            previous_state=previous_readout_states.get(stage_id),
+                        ),
                     }
-                else:
+                state = {
+                    "worker": {
+                        "id": worker.id,
+                        "name": worker.name,
+                        "role": worker.role,
+                        "experiment": worker.experiment.model_dump(mode="json"),
+                        "data_environment": worker.data_environment.model_dump(mode="json"),
+                        "jev_enabled": jev_enabled,
+                        "llm_enabled": llm_enabled,
+                        "architecture": architecture,
+                        "integration_cycle": cycle_index + 1,
+                        "integration_cycles": integration_cycles,
+                    },
+                    "event": req.event.model_dump(mode="json"),
+                    "neural_state": neural_state,
+                    "bridges": list(cycle_bridges),
+                }
+                for stage_id, observation in observations.items():
+                    previous_readout_states[stage_id] = snapshot_state(engines[stage_id], observation)
+                return state
+
+            for component_index, tag in enumerate(architecture):
+                if tag in stage_specs:
+                    stage = stage_specs[tag]
+                    if not stage.enabled:
+                        raise RuntimeError(
+                            f"architecture requests disabled neural stage: {tag}"
+                        )
+                    engine = engines.get(tag)
+                    if engine is None:
+                        raise RuntimeError(
+                            f"architecture neural stage is not instantiated: {tag}"
+                        )
+
+                    pending = pending_bridges.pop(tag, [])
                     merged_drives: dict[int, float] = {}
                     identity_payloads: list[dict[str, Any]] = []
                     explicit_bridge_seen = False
-                    for source_id in active_sources:
-                        bridge = self._bridge_for(worker, source_id, stage.id)
-                        bridged, trace = self._bridge_payload(
-                            bridge,
-                            observations[source_id],
-                            engine,
-                            event=req.event.payload,
-                        )
-                        trace["integration_cycle"] = cycle_index + 1
-                        bridge_trace.append(trace)
+                    for bridged in pending:
                         if "__hive_stimulus__" in bridged:
                             explicit_bridge_seen = True
                         for pair in bridged.get("__hive_stimulus__", []):
@@ -491,205 +546,353 @@ class HivePipeline:
                             )
                         if "upstream" in bridged:
                             identity_payloads.append(bridged["upstream"])
-                    payload = {
+
+                    payload: dict[str, Any] = {
                         "event": req.event.payload,
                         "experiment": worker.experiment.kind,
                         "objective": worker.experiment.objective,
                         "integration_cycle": cycle_index + 1,
-                        "upstream": identity_payloads,
+                        "architecture_tag": tag,
                     }
+                    if identity_payloads:
+                        payload["upstream"] = identity_payloads
                     if explicit_bridge_seen:
                         payload["__hive_stimulus__"] = [
                             [idx, amp] for idx, amp in sorted(merged_drives.items())
                         ]
 
-                observation = engine.step(payload)
-                observation.metadata["integration_cycle"] = cycle_index + 1
-                observation.metadata["integration_cycles"] = integration_cycles
-                if worker.outputs.recording_level == "full":
-                    self._record_full_state(run_id, stage, engine, observation)
-                self._record_stage_execution(run_id, worker, stage, observation)
-                observations[stage.id] = observation
+                    observation = engine.step(payload)
+                    observation.metadata["integration_cycle"] = cycle_index + 1
+                    observation.metadata["integration_cycles"] = integration_cycles
+                    observation.metadata["architecture_tag"] = tag
+                    observation.metadata["architecture_index"] = component_index
 
-            worm = next(
-                (obs for obs in observations.values() if obs.brain_kind == BrainKind.WORM_LINK),
-                None,
-            )
-            fly = next(
-                (obs for obs in observations.values() if obs.brain_kind == BrainKind.FLY_CORE),
-                None,
-            )
+                    if worker.outputs.recording_level == "full":
+                        self._record_full_state(run_id, stage, engine, observation)
+                    self._record_stage_execution(run_id, worker, stage, observation)
+                    observations[tag] = observation
+                    invalidate_readout()
+                    components.append({
+                        "tag": tag,
+                        "type": "neural_stage",
+                        "called": True,
+                        "engine": observation.engine,
+                        "step": observation.step,
+                    })
+                    continue
 
-            neural_state: dict[str, Any] = {}
-            next_states: dict[str, Any] = {}
-            for stage_id, observation in observations.items():
-                engine = engines[stage_id]
-                neural_state[stage_id] = {
-                    "kind": observation.brain_kind.value,
-                    "engine": observation.engine,
-                    "whole_state": whole_state_readout(
-                        engine,
-                        observation,
-                        previous_state=previous_states.get(stage_id),
-                    ),
-                }
-                next_states[stage_id] = snapshot_state(engine, observation)
-
-            decision_state = {
-                "worker": {
-                    "id": worker.id,
-                    "name": worker.name,
-                    "role": worker.role,
-                    "experiment": worker.experiment.model_dump(mode="json"),
-                    "data_environment": worker.data_environment.model_dump(mode="json"),
-                    "jev_enabled": jev_enabled,
-                    "llm_enabled": llm_active,
-                    "integration_cycle": cycle_index + 1,
-                    "integration_cycles": integration_cycles,
-                },
-                "event": req.event.model_dump(mode="json"),
-                "neural_state": neural_state,
-                "bridges": bridge_trace,
-            }
-
-            decisions = brain_readout(observations)
-            if jev_enabled:
-                if self.venice is None:
-                    raise RuntimeError(
-                        "JEV is enabled, but Venice/JEV is not configured. HIVE will not silently substitute another decision head."
-                    )
-                try:
-                    decisions = await self.venice.decide(
-                        decision_state,
-                        worker.jev.questions,
-                        model=worker.jev.model,
-                    )
-                    self._store_transport(run_id, f"jev:cycle-{cycle_index + 1}", decisions.transport)
-                    if decisions.transport.get("call_id"):
-                        provider_call_ids.append(decisions.transport["call_id"])
-                except Exception as exc:
-                    self._store_provider_error(run_id, f"jev:cycle-{cycle_index + 1}", exc)
-                    raise
-
-            llm = None
-            if llm_active:
-                llm_context = {
-                    **decision_state,
-                    "jev_decision": decisions.model_dump(mode="json"),
-                }
-                if worker.llm.provider == "lmstudio":
-                    model = worker.llm.model or self.default_llm_model
-                    if self.lmstudio is None or not model:
+                if tag in bridge_specs:
+                    bridge = bridge_specs[tag]
+                    if not bridge.enabled:
                         raise RuntimeError(
-                            "LLM is enabled, but LM Studio/model is not configured. HIVE will not silently skip an enabled unit member."
+                            f"architecture requests disabled bridge: {tag}"
                         )
-                    try:
-                        llm = await self.lmstudio.chat(
-                            model,
-                            worker.llm.prompt or worker.experiment.task_prompt,
-                            json.dumps(llm_context, default=str),
-                            temperature=worker.llm.temperature,
-                        )
-                        self._store_transport(run_id, f"llm:cycle-{cycle_index + 1}", llm.transport)
-                        if llm.transport.get("call_id"):
-                            provider_call_ids.append(llm.transport["call_id"])
-                    except Exception as exc:
-                        self._store_provider_error(run_id, f"llm:cycle-{cycle_index + 1}", exc)
-                        raise
-                else:
-                    if self.venice_chat is None or not worker.llm.model:
+                    source = observations.get(bridge.source)
+                    if source is None:
                         raise RuntimeError(
-                            "LLM is enabled, but Venice chat/model is not configured. HIVE will not silently skip an enabled unit member."
+                            f"bridge {tag} requires source stage {bridge.source} to execute earlier in the architecture"
                         )
-                    try:
-                        llm = await self.venice_chat.chat(
-                            worker.llm.model,
-                            worker.llm.prompt or worker.experiment.task_prompt,
-                            json.dumps(llm_context, default=str),
-                            temperature=worker.llm.temperature,
+                    target_engine = engines.get(bridge.target)
+                    if target_engine is None:
+                        raise RuntimeError(
+                            f"bridge {tag} target stage is unavailable: {bridge.target}"
                         )
-                        self._store_transport(run_id, f"llm:cycle-{cycle_index + 1}", llm.transport)
-                        if llm.transport.get("call_id"):
-                            provider_call_ids.append(llm.transport["call_id"])
-                    except Exception as exc:
-                        self._store_provider_error(run_id, f"llm:cycle-{cycle_index + 1}", exc)
-                        raise
+                    bridged, trace = self._bridge_payload(
+                        bridge,
+                        source,
+                        target_engine,
+                        event=req.event.payload,
+                    )
+                    trace["integration_cycle"] = cycle_index + 1
+                    trace["architecture_index"] = component_index
+                    cycle_bridges.append(trace)
+                    all_bridge_trace.append(trace)
+                    pending_bridges.setdefault(bridge.target, []).append(bridged)
+                    invalidate_readout()
+                    components.append({
+                        "tag": tag,
+                        "type": "bridge",
+                        "called": True,
+                        "source": bridge.source,
+                        "target": bridge.target,
+                        "engine": bridge.engine,
+                    })
+                    continue
 
-            verification = None
-            if llm is not None and jev_enabled and worker.llm.verify_with_jev:
-                try:
-                    verification = await self.venice.decide(
-                        {
-                            "evidence": decision_state,
-                            "jev_decision": decisions.model_dump(mode="json"),
-                            "llm_output": llm.text,
+                if tag == "readout":
+                    decision_state = build_readout()
+                    components.append({
+                        "tag": tag,
+                        "type": "neural_readout",
+                        "called": True,
+                        "stages": list(decision_state["neural_state"]),
+                        "state_hashes": {
+                            stage_id: item["whole_state"]["state_hash"]
+                            for stage_id, item in decision_state["neural_state"].items()
                         },
-                        {
-                            "supported": JevQuestion(
-                                type=DecisionType.NOUL,
-                                instructions=(
-                                    "Is the LLM output supported by the supplied evidence without unsupported claims?"
-                                ),
+                    })
+                    continue
+
+                if tag == "jev":
+                    if not jev_enabled:
+                        components.append({
+                            "tag": tag,
+                            "type": "jev",
+                            "called": False,
+                            "reason": "ablation_disabled",
+                        })
+                        continue
+                    if decision_state is None:
+                        raise RuntimeError(
+                            "JEV architecture tag requires a readout tag after the most recent neural/bridge change"
+                        )
+                    if self.venice is None:
+                        raise RuntimeError(
+                            "JEV is enabled, but Venice/JEV is not configured. HIVE will not silently substitute another decision head."
+                        )
+                    try:
+                        decisions = await self.venice.decide(
+                            decision_state,
+                            worker.jev.questions,
+                            model=worker.jev.model,
+                        )
+                        jev_call_count += 1
+                        self._store_transport(
+                            run_id,
+                            f"jev:cycle-{cycle_index + 1}:component-{component_index}",
+                            decisions.transport,
+                        )
+                        call_id = decisions.transport.get("call_id")
+                        if call_id:
+                            provider_call_ids.append(call_id)
+                            cycle_provider_ids.append(call_id)
+                    except Exception as exc:
+                        self._store_provider_error(
+                            run_id,
+                            f"jev:cycle-{cycle_index + 1}:component-{component_index}",
+                            exc,
+                        )
+                        raise
+
+                    novelty = float(decisions.answers.get("novelty", {}).get("score", 1.0))
+                    meaningful = self._noul(decisions, "meaningful_signal")
+                    latest_jev_feedback = max(
+                        -1.0,
+                        min(1.0, (meaningful - 0.5) * 0.8 + (novelty - 1.0) * 0.2),
+                    )
+                    components.append({
+                        "tag": tag,
+                        "type": "jev",
+                        "called": True,
+                        "provider": decisions.provider,
+                        "model": decisions.model,
+                        "call_id": decisions.transport.get("call_id"),
+                    })
+                    continue
+
+                if tag == "llm":
+                    if not llm_enabled:
+                        components.append({
+                            "tag": tag,
+                            "type": "llm",
+                            "called": False,
+                            "reason": "ablation_disabled",
+                        })
+                        continue
+                    if decision_state is None:
+                        raise RuntimeError(
+                            "LLM architecture tag requires a readout tag after the most recent neural/bridge change"
+                        )
+                    llm_context = {
+                        **decision_state,
+                        "jev_decision": decisions.model_dump(mode="json"),
+                    }
+                    if worker.llm.provider == "lmstudio":
+                        model = worker.llm.model or self.default_llm_model
+                        if self.lmstudio is None or not model:
+                            raise RuntimeError(
+                                "LLM is enabled, but LM Studio/model is not configured. HIVE will not silently skip an enabled unit member."
                             )
-                        },
-                        model=worker.jev.model,
-                    )
+                        try:
+                            llm = await self.lmstudio.chat(
+                                model,
+                                worker.llm.prompt or worker.experiment.task_prompt,
+                                json.dumps(llm_context, default=str),
+                                temperature=worker.llm.temperature,
+                            )
+                        except Exception as exc:
+                            self._store_provider_error(
+                                run_id,
+                                f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                                exc,
+                            )
+                            raise
+                    else:
+                        if self.venice_chat is None or not worker.llm.model:
+                            raise RuntimeError(
+                                "LLM is enabled, but Venice chat/model is not configured. HIVE will not silently skip an enabled unit member."
+                            )
+                        try:
+                            llm = await self.venice_chat.chat(
+                                worker.llm.model,
+                                worker.llm.prompt or worker.experiment.task_prompt,
+                                json.dumps(llm_context, default=str),
+                                temperature=worker.llm.temperature,
+                            )
+                        except Exception as exc:
+                            self._store_provider_error(
+                                run_id,
+                                f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                                exc,
+                            )
+                            raise
+
+                    llm_call_count += 1
                     self._store_transport(
                         run_id,
-                        f"jev-verification:cycle-{cycle_index + 1}",
-                        verification.transport,
+                        f"llm:cycle-{cycle_index + 1}:component-{component_index}",
+                        llm.transport,
                     )
-                    if verification.transport.get("call_id"):
-                        provider_call_ids.append(verification.transport["call_id"])
-                except Exception as exc:
-                    self._store_provider_error(
-                        run_id,
-                        f"jev-verification:cycle-{cycle_index + 1}",
-                        exc,
+                    call_id = llm.transport.get("call_id")
+                    if call_id:
+                        provider_call_ids.append(call_id)
+                        cycle_provider_ids.append(call_id)
+                    latest_llm_feedback = self._llm_feedback_signal(llm)
+                    components.append({
+                        "tag": tag,
+                        "type": "llm",
+                        "called": True,
+                        "provider": llm.provider,
+                        "model": llm.model,
+                        "call_id": llm.transport.get("call_id"),
+                        "neural_feedback": latest_llm_feedback,
+                    })
+                    continue
+
+                if tag == "jev_verify":
+                    if not (jev_enabled and llm_enabled and worker.llm.verify_with_jev):
+                        components.append({
+                            "tag": tag,
+                            "type": "jev_verification",
+                            "called": False,
+                            "reason": "ablation_or_verification_disabled",
+                        })
+                        continue
+                    if decision_state is None:
+                        raise RuntimeError(
+                            "JEV verification requires a readout tag after the most recent neural/bridge change"
+                        )
+                    if llm is None:
+                        raise RuntimeError(
+                            "JEV verification requires an LLM tag to execute earlier in the architecture"
+                        )
+                    if self.venice is None:
+                        raise RuntimeError(
+                            "JEV verification is enabled, but Venice/JEV is not configured"
+                        )
+                    try:
+                        verification = await self.venice.decide(
+                            {
+                                "evidence": decision_state,
+                                "jev_decision": decisions.model_dump(mode="json"),
+                                "llm_output": llm.text,
+                            },
+                            {
+                                "supported": JevQuestion(
+                                    type=DecisionType.NOUL,
+                                    instructions=(
+                                        "Is the LLM output supported by the supplied evidence without unsupported claims?"
+                                    ),
+                                )
+                            },
+                            model=worker.jev.model,
+                        )
+                        verification_call_count += 1
+                        self._store_transport(
+                            run_id,
+                            f"jev-verification:cycle-{cycle_index + 1}:component-{component_index}",
+                            verification.transport,
+                        )
+                        call_id = verification.transport.get("call_id")
+                        if call_id:
+                            provider_call_ids.append(call_id)
+                            cycle_provider_ids.append(call_id)
+                    except Exception as exc:
+                        self._store_provider_error(
+                            run_id,
+                            f"jev-verification:cycle-{cycle_index + 1}:component-{component_index}",
+                            exc,
+                        )
+                        raise
+                    components.append({
+                        "tag": tag,
+                        "type": "jev_verification",
+                        "called": True,
+                        "provider": verification.provider,
+                        "model": verification.model,
+                        "call_id": verification.transport.get("call_id"),
+                    })
+                    continue
+
+                if tag == "feedback":
+                    feedback_components: list[float] = []
+                    if latest_jev_feedback is not None and worker.jev.feedback_to_brain:
+                        feedback_components.append(latest_jev_feedback)
+                    if latest_llm_feedback is not None:
+                        feedback_components.append(latest_llm_feedback)
+                    modulation = (
+                        max(
+                            -1.0,
+                            min(
+                                1.0,
+                                sum(feedback_components) / len(feedback_components),
+                            ),
+                        )
+                        if feedback_components
+                        else 0.0
                     )
-                    raise
+                    future_neural = any(
+                        future_tag in stage_specs
+                        for future_tag in architecture[component_index + 1 :]
+                    )
+                    apply_now = bool(
+                        feedback_components
+                        and (future_neural or cycle_index < integration_cycles - 1)
+                    )
+                    targets = set(worker.jev.feedback_targets)
+                    if apply_now:
+                        for stage_id, engine in engines.items():
+                            if not targets or stage_id in targets:
+                                engine.feedback(modulation)
+                    components.append({
+                        "tag": tag,
+                        "type": "feedback",
+                        "called": True,
+                        "applied": apply_now,
+                        "modulation": modulation,
+                        "targets": sorted(targets) if targets else list(engines),
+                    })
+                    continue
 
-            feedback_components: list[float] = []
-            novelty = float(decisions.answers.get("novelty", {}).get("score", 1.0))
-            meaningful = self._noul(decisions, "meaningful_signal")
-            route = decisions.answers.get("route", {}).get("choice", "store")
-            llm_needed = self._noul(decisions, "llm_needed")
+                raise RuntimeError(f"unresolved architecture tag: {tag}")
 
-            if jev_enabled:
-                jev_modulation = max(
-                    -1.0,
-                    min(1.0, (meaningful - 0.5) * 0.8 + (novelty - 1.0) * 0.2),
-                )
-                feedback_components.append(jev_modulation)
-            if llm is not None:
-                feedback_components.append(self._llm_feedback_signal(llm))
-
-            modulation = (
-                max(-1.0, min(1.0, sum(feedback_components) / len(feedback_components)))
-                if feedback_components
-                else 0.0
-            )
+            if pending_bridges:
+                dangling = {
+                    target: len(items)
+                    for target, items in pending_bridges.items()
+                    if items
+                }
+                if dangling:
+                    raise RuntimeError(
+                        f"architecture executed bridge output without a later target stage: {dangling}"
+                    )
 
             cycle_trace.append({
                 "cycle": cycle_index + 1,
-                "neural_state_hashes": {
-                    stage_id: state["whole_state"]["state_hash"]
-                    for stage_id, state in neural_state.items()
-                },
-                "jev_called": bool(jev_enabled),
-                "llm_called": bool(llm is not None),
-                "verification_called": bool(verification is not None),
-                "modulation": modulation,
-                "provider_call_ids": list(provider_call_ids),
+                "architecture": architecture,
+                "components": components,
+                "provider_call_ids": cycle_provider_ids,
             })
-
-            if cycle_index < integration_cycles - 1 and worker.jev.feedback_to_brain:
-                targets = set(worker.jev.feedback_targets)
-                for stage_id, engine in engines.items():
-                    if not targets or stage_id in targets:
-                        engine.feedback(modulation)
-
-            previous_states = next_states
 
         worm = next(
             (obs for obs in observations.values() if obs.brain_kind == BrainKind.WORM_LINK),
@@ -700,6 +903,9 @@ class HivePipeline:
             None,
         )
 
+        if decisions.provider == "brain-readout":
+            decisions = brain_readout(observations)
+
         novelty = float(decisions.answers.get("novelty", {}).get("score", 1.0))
         meaningful = self._noul(decisions, "meaningful_signal")
         route = decisions.answers.get("route", {}).get("choice", "store")
@@ -709,7 +915,7 @@ class HivePipeline:
             f"core:{worker.id}",
             f"experiment:{worker.experiment.kind}",
             f"route:{route}",
-            f"jev:{'on' if jev_enabled else 'off'}",
+            f"jev:{'on' if jev_active else 'off'}",
             f"llm:{'on' if llm_active else 'off'}",
         ]
         if meaningful >= 0.7:
@@ -717,30 +923,43 @@ class HivePipeline:
         if novelty >= 1.4:
             labels.append("novel")
 
-        stage_execution = {
-            stage.id: {
+        stage_execution: dict[str, Any] = {}
+        for stage in worker.brain_chain:
+            if stage.id not in observations:
+                continue
+            observation = observations[stage.id]
+            final_readout = whole_state_readout(
+                engines[stage.id],
+                observation,
+                previous_state=None,
+            )
+            stage_execution[stage.id] = {
                 "requested_engine": stage.engine,
                 "kind": stage.kind.value,
                 "input_from": list(stage.input_from),
-                "engine": observations[stage.id].engine,
+                "engine": observation.engine,
                 "real_connectome_topology": bool(
-                    observations[stage.id].metadata.get("real_connectome_topology")
+                    observation.metadata.get("real_connectome_topology")
                 ),
-                "metadata": observations[stage.id].metadata,
-                "metrics": observations[stage.id].metrics,
-                "whole_state_readout": decision_state["neural_state"][stage.id]["whole_state"],
+                "metadata": observation.metadata,
+                "metrics": observation.metrics,
+                "whole_state_readout": final_readout,
             }
-            for stage in worker.brain_chain
-            if stage.enabled and stage.id in observations
-        }
+
         uses_control_fly = any(
-            stage.engine == "malecns_locomotor" for stage in worker.brain_chain if stage.enabled
+            stage.engine == "malecns_locomotor"
+            for stage in worker.brain_chain
+            if stage.enabled and stage.id in architecture
         )
         uses_full_fly = any(
-            stage.engine == "malecns_full_v1" for stage in worker.brain_chain if stage.enabled
+            stage.engine == "malecns_full_v1"
+            for stage in worker.brain_chain
+            if stage.enabled and stage.id in architecture
         )
         uses_full_worm = any(
-            stage.engine == "cook2019_connectome" for stage in worker.brain_chain if stage.enabled
+            stage.engine == "cook2019_connectome"
+            for stage in worker.brain_chain
+            if stage.enabled and stage.id in architecture
         )
 
         execution: dict[str, Any] = {
@@ -751,42 +970,62 @@ class HivePipeline:
             ),
             "primary_experiment": bool(uses_full_fly and uses_full_worm),
             "core_id": worker.id,
+            "architecture": architecture,
+            "component_registry": {
+                **{tag: "neural_stage" for tag in stage_specs},
+                **{tag: "bridge" for tag in bridge_specs},
+                "readout": "neural_readout",
+                "jev": "venice_decisions",
+                "llm": f"{worker.llm.provider}_chat",
+                "jev_verify": "venice_decisions_verification",
+                "feedback": "bounded_neural_feedback",
+            },
             "stages": stage_execution,
-            "bridges": bridge_trace,
+            "bridges": all_bridge_trace,
             "provider_call_ids": provider_call_ids,
             "resolved_worker": worker.model_dump(mode="json"),
             "recording_level": worker.outputs.recording_level,
             "integration": {
-                "architecture": "neural -> JEV -> LLM -> bounded feedback -> same-input neural refinement",
+                "architecture": architecture,
                 "cycles": integration_cycles,
                 "trace": cycle_trace,
             },
             "jev": {
-                "requested": jev_enabled,
-                "called": decisions.provider == "venice",
-                "provider": decisions.provider,
-                "model": decisions.model,
-                "call_id": decisions.transport.get("call_id"),
+                "enabled": jev_enabled,
+                "tagged": jev_tagged,
+                "called": jev_call_count > 0,
+                "calls": jev_call_count,
+                "provider": decisions.provider if jev_call_count else None,
+                "model": decisions.model if jev_call_count else None,
             },
             "llm": {
-                "requested": llm_active,
-                "called": llm is not None,
+                "enabled": llm_enabled,
+                "tagged": llm_tagged,
+                "called": llm_call_count > 0,
+                "calls": llm_call_count,
                 "provider": llm.provider if llm else None,
                 "model": llm.model if llm else None,
-                "call_id": llm.transport.get("call_id") if llm else None,
                 "neural_feedback": self._llm_feedback_signal(llm),
+            },
+            "jev_verification": {
+                "called": verification_call_count > 0,
+                "calls": verification_call_count,
             },
         }
         if worm is not None:
             execution["larva"] = {
                 "engine": worm.engine,
-                "real_connectome_topology": bool(worm.metadata.get("real_connectome_topology")),
+                "real_connectome_topology": bool(
+                    worm.metadata.get("real_connectome_topology")
+                ),
                 "metadata": worm.metadata,
             }
         if fly is not None:
             execution["bee"] = {
                 "engine": fly.engine,
-                "real_connectome_topology": bool(fly.metadata.get("real_connectome_topology")),
+                "real_connectome_topology": bool(
+                    fly.metadata.get("real_connectome_topology")
+                ),
                 "metadata": fly.metadata,
             }
 
