@@ -198,6 +198,8 @@ def build_experiment_plan(
             "activation": worker.llm.activation,
             "configured": llm_configured,
             "verify_with_jev": worker.llm.verify_with_jev,
+            "feedback_to_brain": worker.llm.feedback_to_brain,
+            "feedback_targets": list(worker.llm.feedback_targets),
         },
         "recording": worker.outputs.recording_level,
         "persist_state": worker.runtime.persist_brain_state,
