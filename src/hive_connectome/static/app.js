@@ -283,7 +283,6 @@ function updateCoreControls(){
   currentCore.llm.enabled=$('llmEnabled').checked;
   currentCore.llm.provider=$('llmProvider').value;
   currentCore.llm.model=$('llmModel').value.trim()||null;
-  currentCore.llm.activation='always';
   currentCore.llm.feedback_to_brain=$('llmFeedback').checked;
   currentCore.llm.feedback_targets=$('llmFeedbackTargets').value.split(',').map(value=>value.trim()).filter(Boolean);
   currentCore.llm.verify_with_jev=$('llmVerify').checked;
