@@ -1321,6 +1321,7 @@ class HivePipeline:
                     if latest_jev_feedback is not None and worker.jev.feedback_to_brain:
                         feedback_sources["jev"] = {
                             "value": latest_jev_feedback,
+                            "adapter": worker.jev.feedback_adapter,
                             "targets": list(worker.jev.feedback_targets),
                             "call_id": latest_jev_call_id,
                             "context_hash": latest_jev_context_hash,
@@ -1329,6 +1330,7 @@ class HivePipeline:
                     if latest_llm_feedback is not None and worker.llm.feedback_to_brain:
                         feedback_sources["llm"] = {
                             "value": latest_llm_feedback,
+                            "adapter": worker.llm.feedback_adapter,
                             "targets": list(worker.llm.feedback_targets),
                             "call_id": latest_llm_call_id,
                             "context_hash": latest_llm_context_hash,
@@ -1500,7 +1502,7 @@ class HivePipeline:
                 "jev": "venice_decisions",
                 "llm": f"{worker.llm.provider}_chat",
                 "jev_verify": "venice_decisions_verification",
-                "feedback": "bounded_neural_feedback",
+                "feedback": "bounded_scalar_feedback_v1",
             },
             "stages": stage_execution,
             "bridges": all_bridge_trace,
@@ -1508,6 +1510,10 @@ class HivePipeline:
             "resolved_worker": worker.model_dump(mode="json"),
             "recording_level": worker.outputs.recording_level,
             "feedback_enabled": feedback_enabled,
+            "feedback_adapters": {
+                "jev": worker.jev.feedback_adapter,
+                "llm": worker.llm.feedback_adapter,
+            },
             "integration": {
                 "architecture": architecture,
                 "cycles": integration_cycles,
