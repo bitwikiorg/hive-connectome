@@ -864,6 +864,7 @@ class HivePipeline:
                         "step": observation.step,
                         "metrics": observation.metrics,
                         "state_hash": observation.metadata.get("state_hash"),
+                        "recording_artifact": observation.metadata.get("recording_artifact"),
                     })
                     continue
 
