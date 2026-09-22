@@ -261,3 +261,89 @@ async def test_jev_verifier_does_not_require_regular_jev_tag(tmp_path: Path):
     assert "jev_decision" not in jev.states[0]
     assert "llm_output" in jev.states[0]
     db.close()
+
+
+def test_feedback_targets_must_reference_real_neural_stages(tmp_path: Path):
+    workers = _store(tmp_path)
+    raw = workers.get("scout").model_dump(mode="json")
+    raw["llm"]["feedback_targets"] = ["not-a-stage"]
+    with pytest.raises(ValueError, match="llm feedback targets reference unknown neural stages"):
+        WorkerSpec.model_validate(raw)
+
+
+@pytest.mark.asyncio
+async def test_llm_does_not_receive_stale_jev_decision_after_neural_change(tmp_path: Path):
+    workers = _store(tmp_path)
+    scout = workers.get("scout")
+    scout.runtime.integration_cycles = 1
+    scout.jev.enabled = True
+    scout.llm.enabled = True
+    scout.llm.model = "test-model"
+    scout.architecture = [
+        "worm",
+        "readout",
+        "jev",
+        "worm",
+        "readout",
+        "llm",
+    ]
+    workers.save(scout)
+
+    db = HiveDB(tmp_path / "hive.db")
+    llm = CaptureLLM()
+    pipeline = HivePipeline(
+        db,
+        workers,
+        venice=OrderedJev(),
+        lmstudio=llm,
+        default_llm_model="test-model",
+        data_dir=tmp_path,
+    )
+    await pipeline.run(PipelineRequest(
+        worker_id="scout",
+        jev_enabled=True,
+        llm_enabled=True,
+        event=EventEnvelope(payload={"signal": "stale-jev"}),
+    ))
+
+    assert len(llm.contexts) == 1
+    assert "jev_decision" not in llm.contexts[0]
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_verifier_rejects_llm_output_from_stale_readout(tmp_path: Path):
+    workers = _store(tmp_path)
+    scout = workers.get("scout")
+    scout.runtime.integration_cycles = 1
+    scout.jev.enabled = True
+    scout.llm.enabled = True
+    scout.llm.model = "test-model"
+    scout.llm.verify_with_jev = True
+    scout.architecture = [
+        "worm",
+        "readout",
+        "llm",
+        "worm",
+        "readout",
+        "jev_verify",
+    ]
+    workers.save(scout)
+
+    db = HiveDB(tmp_path / "hive.db")
+    pipeline = HivePipeline(
+        db,
+        workers,
+        venice=OrderedJev(),
+        lmstudio=CaptureLLM(),
+        default_llm_model="test-model",
+        data_dir=tmp_path,
+    )
+    with pytest.raises(RuntimeError, match="latest LLM output.*current readout"):
+        await pipeline.run(PipelineRequest(
+            worker_id="scout",
+            jev_enabled=True,
+            llm_enabled=True,
+            event=EventEnvelope(payload={"signal": "stale-llm"}),
+        ))
+    db.close()
