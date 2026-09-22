@@ -132,7 +132,14 @@ class BridgeSpec(BaseModel):
     id: str
     source: str
     target: str
-    engine: Literal["state_projection_v1", "hash_projection_v1", "identity_payload_v1"] = "state_projection_v1"
+    engine: Literal[
+        "whole_state_projection_v1",
+        "state_projection_v1",
+        "random_projection_v1",
+        "hash_projection_v1",
+        "zero_bridge_v1",
+        "identity_payload_v1",
+    ] = "whole_state_projection_v1"
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
 
