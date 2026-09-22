@@ -630,6 +630,7 @@ class HivePipeline:
         stage_execution: dict[str, Any],
         bridges: list[dict[str, Any]],
         input_encoders: dict[str, str],
+        integration_trace: list[dict[str, Any]],
     ) -> str | None:
         cook_stage = next(
             (
@@ -703,8 +704,21 @@ class HivePipeline:
             "canonical_bridge_engine": canonical_bridge_engine,
             "input_encoders": dict(input_encoders),
         }
+        recording_artifacts = [
+            component.get("recording_artifact")
+            for pass_trace in integration_trace
+            for component in pass_trace.get("components", [])
+            if component.get("recording_artifact")
+        ]
+        context_artifacts = [
+            component.get("context_artifact")
+            for pass_trace in integration_trace
+            for component in pass_trace.get("components", [])
+            if component.get("context_artifact")
+        ]
+
         receipt = {
-            "receipt_version": 2,
+            "receipt_version": 3,
             "kind": "primary_end_to_end",
             "end_to_end": True,
             "run_id": run_id,
@@ -720,6 +734,8 @@ class HivePipeline:
             "harness_passes": harness_passes,
             "canonical_bridge_engine": canonical_bridge_engine,
             "input_encoders": dict(input_encoders),
+            "recording_artifacts": recording_artifacts,
+            "context_artifacts": context_artifacts,
             "stages": {
                 cook_stage.id: stage_execution.get(cook_stage.id),
                 fly_stage.id: stage_execution.get(fly_stage.id),
@@ -1568,6 +1584,7 @@ class HivePipeline:
             stage_execution=stage_execution,
             bridges=all_bridge_trace,
             input_encoders=dict(req.input_encoders),
+            integration_trace=cycle_trace,
         )
         if primary_receipt is not None:
             execution["primary_execution_receipt"] = primary_receipt
