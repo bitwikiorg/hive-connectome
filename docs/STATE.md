@@ -112,6 +112,9 @@ The Windows first-run script now installs the full required pack and performs a 
 11. JEV/LLM feedback must affect a same-input neural refinement cycle when integration_cycles > 1.
 12. Core architecture order is defined by executable component tags; the runtime, plan API, GUI, traces, and tests must resolve the same ordered sequence.
 13. A JEV/LLM call may not consume stale neural context: a readout must follow the most recent neural/bridge change before a provider call.
+14. JEV and LLM feedback are independent sources with independent enable flags and target sets.
+15. LLM context may contain `jev_decision` only when a real regular JEV call executed earlier in that integration cycle.
+16. `jev_verify` may operate without a regular `jev` tag; it verifies the latest LLM output and includes prior JEV state only if that state actually exists.
 
 ## ROLLBACK RULE
 
