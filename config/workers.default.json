@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "workers": [
     {
       "id": "primary-full",
@@ -95,7 +95,9 @@
         "activation": "always",
         "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
         "temperature": 0.2,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "on_demand",
@@ -201,7 +203,9 @@
         "activation": "always",
         "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
         "temperature": 0.2,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "on_demand",
@@ -307,7 +311,9 @@
         "activation": "always",
         "prompt": "Use the extracted DOM/accessibility evidence to answer the experiment question. Do not invent content that is not present.",
         "temperature": 0.1,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "on_demand",
@@ -414,7 +420,9 @@
         "activation": "always",
         "prompt": "Explain only high-value anomalies or unresolved transitions.",
         "temperature": 0.2,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "daemon",
@@ -519,7 +527,9 @@
         "activation": "always",
         "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
         "temperature": 0.2,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "on_demand",
@@ -624,7 +634,9 @@
         "activation": "always",
         "prompt": "Explain the event only when bounded classification is insufficient. Use evidence only.",
         "temperature": 0.2,
-        "verify_with_jev": true
+        "verify_with_jev": true,
+        "feedback_to_brain": true,
+        "feedback_targets": []
       },
       "runtime": {
         "mode": "on_demand",
