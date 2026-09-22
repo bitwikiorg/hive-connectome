@@ -96,6 +96,12 @@ class RuntimeSpec(BaseModel):
     cron: str | None = None
     persist_brain_state: bool = True
     max_events_per_tick: int = Field(default=25, ge=1, le=1000)
+    integration_cycles: int = Field(
+        default=2,
+        ge=1,
+        le=8,
+        description="Same-input recurrent neural/JEV/LLM cycles when any inference provider is enabled.",
+    )
 
 
 class OutputSpec(BaseModel):
