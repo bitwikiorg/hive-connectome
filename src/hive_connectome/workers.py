@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from hive_connectome.schemas import BrainKind, BrainStageSpec, BridgeSpec, JevQuestion
 
@@ -69,12 +69,6 @@ class JevConfig(BaseModel):
     provider: Literal["venice"] = "venice"
     model: str = "jev-latest"
     questions: dict[str, JevQuestion] = Field(default_factory=dict)
-    llm_gate_threshold: float = Field(
-        default=0.65,
-        ge=0,
-        le=1,
-        validation_alias=AliasChoices("llm_gate_threshold", "confidence_threshold"),
-    )
     feedback_to_brain: bool = True
     feedback_targets: list[str] = Field(default_factory=list)
 
@@ -83,19 +77,11 @@ class LLMConfig(BaseModel):
     enabled: bool = False
     provider: Literal["lmstudio", "venice"] = "lmstudio"
     model: str | None = None
-    activation: Literal["always"] = "always"
     prompt: str = ""
     temperature: float = Field(default=0.2, ge=0, le=2)
     verify_with_jev: bool = True
     feedback_to_brain: bool = True
     feedback_targets: list[str] = Field(default_factory=list)
-
-    @field_validator("activation", mode="before")
-    @classmethod
-    def migrate_legacy_activation(cls, value):
-        # v0.6/v0.7 briefly exposed hidden LLM gating modes. Architecture tags
-        # are now the sole execution-order/gating mechanism.
-        return "always"
 
 
 class RuntimeSpec(BaseModel):
