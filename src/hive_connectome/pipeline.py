@@ -641,6 +641,7 @@ class HivePipeline:
         *,
         run_id: str,
         worker: WorkerSpec,
+        resolved_stages: list[BrainStageSpec],
         event_id: str,
         architecture: list[str],
         harness_passes: int,
@@ -651,7 +652,7 @@ class HivePipeline:
     ) -> str | None:
         cook_stage = next(
             (
-                stage for stage in worker.brain_chain
+                stage for stage in resolved_stages
                 if stage.enabled
                 and stage.id in architecture
                 and stage.engine == "cook2019_connectome"
@@ -800,7 +801,35 @@ class HivePipeline:
 
         llm_enabled = bool(llm_enabled or req.force_llm)
         architecture = list(req.architecture or worker.architecture)
-        stage_specs = {stage.id: stage for stage in worker.brain_chain}
+
+        known_stage_ids = {stage.id for stage in worker.brain_chain}
+        unknown_stage_engines = [
+            stage_id for stage_id in req.stage_engines
+            if stage_id not in known_stage_ids
+        ]
+        unknown_stage_configs = [
+            stage_id for stage_id in req.stage_config_overrides
+            if stage_id not in known_stage_ids
+        ]
+        if unknown_stage_engines or unknown_stage_configs:
+            raise RuntimeError(
+                "neural stage override references unknown stage: "
+                f"{sorted(set(unknown_stage_engines + unknown_stage_configs))}"
+            )
+
+        resolved_stages: list[BrainStageSpec] = []
+        for configured_stage in worker.brain_chain:
+            raw_stage = configured_stage.model_dump(mode="json")
+            if configured_stage.id in req.stage_engines:
+                raw_stage["engine"] = req.stage_engines[configured_stage.id]
+            if configured_stage.id in req.stage_config_overrides:
+                raw_stage["config"] = {
+                    **raw_stage.get("config", {}),
+                    **req.stage_config_overrides[configured_stage.id],
+                }
+            resolved_stages.append(BrainStageSpec.model_validate(raw_stage))
+
+        stage_specs = {stage.id: stage for stage in resolved_stages}
         bridge_specs = {bridge.id: bridge for bridge in worker.bridges}
         for bridge_id, engine_name in req.bridge_engines.items():
             bridge = bridge_specs.get(bridge_id)
@@ -833,7 +862,7 @@ class HivePipeline:
         if worker.outputs.save_event:
             self.db.insert_event(req.event.model_dump(mode="json"))
 
-        engines = self._engines(worker)
+        engines = self._engines(worker, resolved_stages)
         integration_cycles = int(
             req.harness_passes or worker.runtime.resolved_harness_passes
         )
@@ -1485,7 +1514,7 @@ class HivePipeline:
             labels.append("novel")
 
         stage_execution: dict[str, Any] = {}
-        for stage in worker.brain_chain:
+        for stage in resolved_stages:
             if stage.id not in observations:
                 continue
             observation = observations[stage.id]
@@ -1509,7 +1538,7 @@ class HivePipeline:
 
         uses_control_fly = any(
             stage.engine == "malecns_locomotor"
-            for stage in worker.brain_chain
+            for stage in resolved_stages
             if stage.enabled and stage.id in architecture
         )
         uses_full_fly = any(
@@ -1534,6 +1563,11 @@ class HivePipeline:
             "architecture": architecture,
             "bridge_engine_overrides": dict(req.bridge_engines),
             "input_encoder_overrides": dict(req.input_encoders),
+            "stage_engine_overrides": dict(req.stage_engines),
+            "stage_config_overrides": dict(req.stage_config_overrides),
+            "resolved_stages": [
+                stage.model_dump(mode="json") for stage in resolved_stages
+            ],
             "component_registry": {
                 **{tag: "neural_stage" for tag in stage_specs},
                 **{tag: "bridge" for tag in bridge_specs},
@@ -1601,6 +1635,7 @@ class HivePipeline:
         primary_receipt = self._record_primary_execution(
             run_id=run_id,
             worker=worker,
+            resolved_stages=resolved_stages,
             event_id=req.event.id,
             architecture=architecture,
             harness_passes=integration_cycles,
