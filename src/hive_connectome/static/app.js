@@ -432,7 +432,7 @@ function renderRun(result,payload){
   rows.push(traceRow(index++,'Input','entered HIVE','<div class="output-text">'+escapeHtml(payloadText)+'</div>'));
 
   for(const cycle of trace){
-    rows.push(traceRow(index++,'Harness pass '+cycle.cycle,'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
+    rows.push(traceRow(index++,'Harness pass '+(cycle.pass??cycle.cycle),'cycle','<div class="meta">'+escapeHtml((cycle.architecture||[]).join(' → '))+'</div>'));
     for(const component of cycle.components||[]){
       const called=Boolean(component.called);
       const typeLabel={
