@@ -610,9 +610,19 @@ class HivePipeline:
                 valid=True,
             )
 
-        route = decisions.answers.get("route", {}).get("choice")
+        answer_value: Any = None
+        explicit = decisions.answers.get("answer")
+        if isinstance(explicit, dict):
+            for key in ("choice", "score", "noul", "value", "text"):
+                if key in explicit:
+                    answer_value = explicit[key]
+                    break
+        elif explicit is not None:
+            answer_value = explicit
+        if answer_value is None:
+            answer_value = decisions.answers.get("route", {}).get("choice")
         return TaskResult(
-            answer=route,
+            answer=answer_value,
             structured_output=decisions.answers,
             confidence=decisions.confidence,
             source=decisions.provider,
