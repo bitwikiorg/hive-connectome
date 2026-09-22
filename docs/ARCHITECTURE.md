@@ -23,6 +23,28 @@ recorded result + trace
 
 A Core owns its experiment objective, data environment, neural configuration, explicit bridges, JEV questions, LLM configuration, recurrent integration-cycle count, recording policy, and outputs. A Hive chains multiple Cores only when the experiment explicitly requires a multi-Core topology.
 
+## Comma-tagged executable architecture
+
+A Core's architecture is an ordered list of executable component tags. Configuration accepts either a list or a comma-separated string. The default full composition is:
+
+```text
+worm,worm-to-fly,fly,readout,jev,llm,jev_verify,feedback
+```
+
+Tags are not descriptive metadata. The runtime resolves and executes them in exactly that order:
+
+- neural stage IDs such as `worm` and `fly` call their configured neural engines;
+- bridge IDs such as `worm-to-fly` execute that explicit bridge and queue its output for the target stage;
+- `readout` builds the whole-state provider representation;
+- `jev` calls the configured Venice Decisions model when JEV is enabled;
+- `llm` calls the configured Venice or LM Studio model when the LLM is enabled;
+- `jev_verify` performs the explicit post-LLM JEV verification call when enabled;
+- `feedback` converts the latest enabled JEV/LLM feedback into bounded neural modulation.
+
+Reordering tags changes the computation. Repeating a tag repeats that component call. Removing a tag removes that component from the architecture. JEV/LLM enable flags remain ablation switches: a tagged but disabled inference component is recorded as skipped rather than silently called.
+
+A provider-facing `jev` or `llm` tag requires a `readout` after the most recent neural/bridge state change. Invalid orderings fail explicitly instead of silently consuming stale state.
+
 ## Neural state supplied to JEV and the LLM
 
 The inference layers must receive a representation derived from the complete executed neural state.
