@@ -56,6 +56,9 @@ Each worker owns:
 - explicit bridge engine/config
 - JEV model/questions/toggle/feedback behavior
 - LLM provider/model/prompt/toggle/temperature
+- independent JEV feedback enable/targets
+- independent LLM feedback enable/targets
+- optional JEV verification toggle/tag
 - on-demand/daemon/cron runtime
 - state persistence
 - output persistence
