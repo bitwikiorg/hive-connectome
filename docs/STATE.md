@@ -13,9 +13,14 @@ explicit neural bridge
         ↓
 full MaleCNS v1.0 connectome
         ↓
+whole-state neural representation
+        ↓
 JEV independently ON/OFF
         ↓
 LLM independently ON/OFF
+        ↓
+bounded recurrent feedback
+        ↺ same-input neural refinement
         ↓
 fixed task + fixed data + fixed evaluation
 ```
@@ -47,7 +52,7 @@ JEV OFF · LLM ON
 JEV ON  · LLM ON
 ```
 
-Those four runs must use the same substrate, data, prompt, task, and evaluation case.
+Those four runs must use the same substrate, data, prompt, task, and evaluation case. Every enabled inference member executes on every integration cycle; JEV is not an LLM gate.
 
 ### Controls only
 
@@ -69,6 +74,8 @@ As of v0.7:
 - Generic Core graph + explicit bridges: **implemented**.
 - Hive Core chaining: **implemented**.
 - Venice JEV / Venice chat / LM Studio proof-call receipts: **implemented**.
+- Whole-state neural representation for JEV/LLM context: **implemented**.
+- Same-input recurrent neural → JEV → LLM → feedback integration loop: **implemented**.
 - Experiment ZIP export with JSONL, CSV, provider receipts, execution receipts, and optional full state artifacts: **implemented**.
 - Primary readiness remains runtime-derived: **installed data and implemented code are not enough**.
 
@@ -99,7 +106,10 @@ The Windows first-run script now installs the full required pack and performs a 
 6. Controls remain clearly labeled controls in code, setup, GUI, receipts, and documentation.
 7. Readiness is derived from the experiment contract plus execution receipts, not marketing copy.
 8. External inference claims require actual provider-call receipts, not a model-list response.
+9. JEV/LLM context must be derived from the complete executed neural state; arbitrary first-N state excerpts are forbidden as the primary neural representation.
+10. If JEV or an LLM is enabled, it executes on every integration cycle or the run fails explicitly.
+11. JEV/LLM feedback must affect a same-input neural refinement cycle when integration_cycles > 1.
 
 ## ROLLBACK RULE
 
-Any change that makes a reduced graph satisfy `primary_experiment_ready`, calls the full MaleCNS dataset optional, or describes a control result as the primary study is semantic drift and must be rejected or rolled back.
+Any change that makes a reduced graph satisfy `primary_experiment_ready`, calls the full MaleCNS dataset optional, describes a control result as the primary study, truncates the primary inference context to arbitrary neural excerpts, restores JEV-gated LLM execution, or prevents enabled inference members from participating in the same-input recurrent Core is semantic drift and must be rejected or rolled back.
