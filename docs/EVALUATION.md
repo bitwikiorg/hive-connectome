@@ -31,7 +31,7 @@ For one worker and one fixed test set, run:
 | `jev_off_llm_on` | off | on |
 | `jev_on_llm_on` | on | on |
 
-Nothing else should change. In particular, the architecture tags and harness-pass count stay identical across the four JEV/LLM ablations; only the two inference toggles change. If architecture order or cycle count is the variable under study, that must be a separate named experiment.
+Nothing else should change. In particular, the architecture tags and harness-pass count stay identical across the four JEV/LLM ablations; only the two inference toggles change. If architecture order or harness-pass count is the variable under study, that must be a separate named experiment.
 
 Measure:
 
@@ -46,14 +46,14 @@ Measure:
 
 ## Neural controls
 
-Once real connectomes are executing, add:
+The runtime already exposes the following architecture/control surfaces; include the relevant subset in the experiment:
 
 - Larva only
 - Bee only
 - Larva → Bee
-- shuffled connectome
-- random reservoir
-- no neural state
+- shuffled full-MaleCNS topology
+- synthetic reservoir stage substitution
+- zero bridge / zero root input
 
 ## Causal controls inherited from the inspiration repos
 
